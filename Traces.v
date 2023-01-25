@@ -39,8 +39,24 @@ end.
 
 End Operations.
 
+From Paco Require Import paco.
+
 Section Eqtr.
 
-Context {E : Type -> Type} {R1 R2 : Type} (RR : R1 -> R2 -> Prop).
+Context {A B : Type}.
+
+Inductive eqtrF (sim : trace A B -> trace A B -> Prop) :
+    trace' A B -> trace' A B -> Prop :=
+| EqTrTnilF a :
+   eqtrF sim (TnilF _ _ _ a) (TnilF _ _ _ a)
+| EqTrTconsF a b tr1 tr2 (REL : sim tr1 tr2) :
+   eqtrF sim (TconsF _ _ _ a b tr1) (TconsF _ _ _ a b tr2).
+
+Definition eqtr_ sim :
+    trace A B -> trace A B -> Prop :=
+    fun tr1 tr2 => eqtrF sim (observe tr1) (observe tr2).
+
+Definition eqtr : trace A B -> trace A B -> Prop :=
+    paco2 eqtr_ bot2.
 
 End Eqtr.
