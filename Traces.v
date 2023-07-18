@@ -1,3 +1,8 @@
+From Coq Require Import RelationClasses Program.Basics.
+From Coinduction Require Import all.
+
+Import CoindNotations.
+
 Set Implicit Arguments.
 Set Contextual Implicit.
 Set Primitive Projections.
@@ -6,27 +11,33 @@ Section Trace.
 
 Context {A B : Type}.
 
-Inductive traceF (X : Type) : Type :=
-| TnilF : A -> traceF X
-| TconsF : A -> B -> X -> traceF X.
+Variant traceF (trace : Type) : Type :=
+| TnilF (a : A)
+| TconsF (a : A) (b : B) (tr : trace).
 
-CoInductive trace := gotrace { untrace : traceF trace }.
+CoInductive trace : Type := go { _observe : traceF trace }.
 
 End Trace.
+
+Declare Scope trace_scope.
+Bind Scope trace_scope with trace.
+Delimit Scope trace_scope with trace.
+Local Open Scope trace_scope.
 
 Arguments trace _ _ : clear implicits.
 Arguments traceF _ _ : clear implicits.
 
 Notation trace' A B := (traceF A B (trace A B)).
 
-Definition observe {A B} (tr : trace A B) : trace' A B := @untrace A B tr.
+Definition observe {A B} (tr : trace A B) : trace' A B :=
+@_observe A B tr.
 
-Notation Tnil a := (gotrace (TnilF a)).
-Notation Tcons a b tr := (gotrace (TconsF a b tr)).
+Notation Tnil a := (go (TnilF a)).
+Notation Tcons a b tr := (go (TconsF a b tr)).
 
 Section Operations.
 
-Variables A B : Type.
+Context {A B : Type}.
 
 Definition hd (tr : trace A B) : A :=
 match observe tr with
@@ -36,156 +47,180 @@ end.
 
 CoFixpoint trace_append (tr tr' : trace A B) : trace A B :=
 match observe tr with
-| TnilF _ => tr'
+| TnilF a => tr'
 | TconsF a b tr0 => Tcons a b (trace_append tr' tr0)
 end.
 
-#[local] Infix "+++" := trace_append (at level 60, right associativity).
-
 End Operations.
 
-From Paco Require Import paco.
+Module TraceNotations.
+Infix "+++" := trace_append (at level 60, right associativity) : trace_scope.
+End TraceNotations.
 
 Section Eqtr.
 
 Context {A B : Type}.
 
-Inductive eqtrF (sim : trace A B -> trace A B -> Prop) :
-    trace' A B -> trace' A B -> Prop :=
-| EqTrTnilF a :
-   eqtrF sim (TnilF a) (TnilF a)
-| EqTrTconsF a b tr1 tr2 (REL : sim tr1 tr2) :
-  eqtrF sim (TconsF a b tr1) (TconsF a b tr2).
+Variant eqtrb (eq : trace A B -> trace A B -> Prop) :
+ trace' A B -> trace' A B -> Prop :=
+| Eq_Tnil a : eqtrb eq (TnilF a) (TnilF a)
+| Eq_Tcons a b tr1 tr2 (REL : eq tr1 tr2) :
+   eqtrb eq (TconsF a b tr1) (TconsF a b tr2).
+Hint Constructors eqtrb: core.
 
-Definition eqtr_ sim : trace A B -> trace A B -> Prop :=
-  fun tr1 tr2 => eqtrF sim (observe tr1) (observe tr2).
+Definition eqtrb_ eq : trace A B -> trace A B -> Prop :=
+ fun tr1 tr2 => eqtrb eq (observe tr1) (observe tr2).
 
-Lemma eqtrF_mono sim sim' tr tr'
- (IN: eqtrF sim tr tr')
- (LE: sim <2= sim') :
- eqtrF sim' tr tr'.
-Proof.
-intros. induction IN.
-- apply EqTrTnilF.
-- apply EqTrTconsF.
-  apply LE.
-  apply REL.
+Program Definition feqtr: mon (trace A B -> trace A B -> Prop) := {| body := eqtrb_ |}.
+Next Obligation.
+  unfold pointwise_relation, Basics.impl, eqtrb_.
+  intros ?? INC ?? EQ. inversion_clear EQ; auto.
 Qed.
-
-Lemma eqtr__mono : monotone2 eqtr_.
-Proof.
-do 2 red. intros.
-eapply eqtrF_mono; eauto.
-Qed.
-
-Hint Resolve eqtr__mono : paco.
-
-Definition eqtr : trace A B -> trace A B -> Prop :=
-  paco2 eqtr_ bot2.
-
-Inductive eqtr_trans_clo (r : trace A B -> trace A B -> Prop)
-  : trace A B -> trace A B -> Prop :=
-| eqtr_trans_clo_intro tr1 tr2 tr1' tr2'
-      (EQVl: eqtr tr1 tr1')
-      (EQVr: eqtr tr2 tr2')
-      (REL: r tr1' tr2')
-  : eqtr_trans_clo r tr1 tr2.
-
-Definition eqtrC := eqtr_trans_clo.
 
 End Eqtr.
 
-Require Import Program.Tactics.
+Definition eqtr {A B} := (gfp (@feqtr A B)).
+#[global] Hint Unfold eqtr: core.
+#[global] Hint Constructors eqtrb: core.
+Arguments eqtrb_ _ _/.
 
-Ltac unfold_eqtr :=
-  (try match goal with [|- eqtr_ _ _ _] => red end);
-  (repeat match goal with [H: eqtr_ _ _ _ |- _ ] => red in H end).
+Ltac fold_eqtr :=
+  repeat
+    match goal with
+    | h: context[@feqtr ?A ?B] |- _ => fold (@eqtr A B) in h
+    | |- context[@feqtr ?A ?B] => fold (@eqtr A B)
+    end.
 
-Tactic Notation "hinduction" hyp(IND) "before" hyp(H)
-  := move IND before H; revert_until IND; induction IND.
+#[export] Instance Reflexive_eqtrb {A B : Type} {R} {Hr: Reflexive R} :
+ Reflexive (@eqtrb A B R).
+Proof. now intros [a|a b tr]; constructor. Qed.
 
-Ltac inv H := inversion H; clear H; subst.
+#[export] Instance Reflexive_feqtr {A B : Type} : forall {R: Chain (@feqtr A B)}, Reflexive `R.
+Proof. apply Reflexive_chain. now cbn. Qed.
 
-Section EqTrProps.
-
-Context {A B : Type}.
-
-Lemma eqtrC_mon r1 r2 t1 t2
-      (IN: eqtrC r1 t1 t2)
-      (LE: r1 <2= r2):
-  @eqtrC A B r2 t1 t2.
+#[export] Instance Symmetric_eqtrb {A B : Type} {R} {Hr: Symmetric R} :
+ Symmetric (@eqtrb A B R).
 Proof.
-  destruct IN. econstructor; eauto.
-Qed.
-
-Hint Resolve eqtrC_mon : paco.
-
-Lemma eqtrC_wcompat :
-  wcompatible2 (@eqtr_ A B) eqtrC.
-Proof.
-  econstructor; [ eauto with paco | ].
-  intros. destruct PR.
-  punfold EQVl. punfold EQVr. unfold_eqtr.
-  hinduction REL before r; intros; clear tr1' tr2'.
-  - remember (TnilF a) as x.
-    hinduction EQVl before r; intros; subst; try inv Heqx; eauto.
-    remember (TnilF a0) as y.
-    hinduction EQVr before r; intros; subst; try inv Heqy.
+intros [a|a b tr].
+- intros [a'|a' b' tr'] Heq.
+  * inversion Heq; subst.
     constructor.
-  - remember (TauF m1) as x.
-    hinduction EQVl before r; intros; subst; try inv Heqx; try inv CHECK; [ | eauto with itree ].
-    remember (TauF m3) as y.
-    hinduction EQVr before r; intros; subst; try inv Heqy; try inv CHECK; [ | eauto with itree ].
-    pclearbot. econstructor. gclo.
-    econstructor; eauto with paco.
-  - remember (VisF e k1) as x.
-    hinduction EQVl before r; intros; try discriminate Heqx; [ inv_Vis | eauto with itree ].
-    remember (VisF e k3) as y.
-    hinduction EQVr before r; intros; try discriminate Heqy; [ inv_Vis | eauto with itree ].
-    econstructor. intros. pclearbot.
-    eapply MON.
-    + apply CMP. econstructor...
-    + intros. apply gpaco2_clo, PR.
-  - remember (TauF t1) as x.
-    hinduction EQVl before r; intros; subst; try inv Heqx; try inv CHECK; [ | eauto with itree ].
-    pclearbot. punfold REL...
-  - remember (TauF t2) as y.
-    hinduction EQVr before r; intros; subst; try inv Heqy; try inv CHECK; [ | eauto with itree ].
-    pclearbot. punfold REL...
+  * inversion Heq.
+- intros [a'|a' b' tr'] Heq.
+  * inversion Heq.
+  * inversion Heq; subst.
+    constructor.
+    symmetry.
+    assumption.
 Qed.
 
-Hint Resolve eqitC_wcompat : paco.
-
-Lemma eqit_idclo_compat b1 b2: compose (eqitC b1 b2) id <3= compose id (eqitC b1 b2).
+#[export] Instance Symmetric_feqtr {A B : Type} : forall {R: Chain (@feqtr A B)}, Symmetric `R.
 Proof.
-  intros. apply PR.
-Qed.
-Hint Resolve eqit_idclo_compat : paco.
-
-Lemma eqitC_dist b1 b2:
-  forall r1 r2, eqitC b1 b2 (r1 \2/ r2) <2= (eqitC b1 b2 r1 \2/ eqitC b1 b2 r2).
-Proof.
-  intros. destruct PR. destruct REL; eauto with itree.
+  apply Symmetric_chain. 
+  intros R HR.
+  intros x y xy.
+  now apply Symmetric_eqtrb.
 Qed.
 
-Hint Resolve eqitC_dist : paco.
-
-Lemma eqit_clo_trans b1 b2 vclo
-      (MON: monotone2 vclo)
-      (CMP: compose (eqitC b1 b2) vclo <3= compose vclo (eqitC b1 b2)):
-  eqit_trans_clo b1 b2 false false <3= gupaco2 (eqit_ RR b1 b2 vclo) (eqitC b1 b2).
+#[export] Instance Transitive_eqtrb {A B : Type} {R} {Hr: Transitive R} :
+ Transitive (@eqtrb A B R).
 Proof.
-  intros. destruct PR. gclo. econstructor; eauto with paco.
+intros [xa|xa xb xtr]; intros [ya|ya yb ytr]; intros [za|za zb ztr] Heqx Heqy.
+- inversion Heqx; subst.
+  inversion Heqy; subst.
+  constructor.
+- inversion Heqy; subst.
+- inversion Heqx.
+- inversion Heqx.
+- inversion Heqx.
+- inversion Heqx.
+- inversion Heqy.
+- inversion Heqx; subst.
+  inversion Heqy; subst.
+  constructor.
+  revert REL REL0.
+  apply Hr.
 Qed.
 
-Lemma eqtr_refl : forall (tr : trace A B), eqtr tr tr.
+#[export] Instance Transitive_feqtr {A B : Type} : forall {R: Chain (@feqtr A B)}, Transitive `R.
 Proof.
-red; intros.
-ginit.
-red.
-pcofix CIH. gstep; intros.
-intros; red.
-destruct tr.
+  apply Transitive_chain. 
+  intros R HR.
+  intros x y z.
+  now apply Transitive_eqtrb.
+Qed.
 
-Lemma bisim_sym : forall tr1 tr2, bisim tr1 tr2 -> bisim tr2 tr1.
+#[export] Instance Equivalence_eqtr {A B}: Equivalence (@eqtr A B).
+Proof. split; typeclasses eauto. Qed.
+
+Lemma eqtr_eta_ {A B : Type} (tr : trace A B) : eqtr tr (go (_observe tr)).
+Proof. now step. Qed.
+
+Lemma eqtr_eta {A B : Type} (tr : trace A B) : eqtr tr (go (observe tr)).
+Proof. now step. Qed.
+
+CoFixpoint zeros : trace nat unit := Tcons 0 tt zeros.
+Definition zeros' : trace nat unit := Tcons 0 tt (Tcons 0 tt zeros).
+
+Lemma zeros_zeros_eqtr : eqtr zeros zeros.
+Proof. reflexivity. Qed.
+
+Lemma zeros_zeros_one_eqtr : eqtr zeros (Tcons 0 tt zeros).
+Proof. unfold eqtr; step; cbn; reflexivity. Qed.
+
+Lemma zeros_zeros'_eqtr : eqtr zeros zeros'.
 Proof.
+unfold eqtr, zeros'.
+step; cbn; constructor; cbn.
+apply zeros_zeros_one_eqtr.
+Qed.
+
+#[export] Instance Proper_eqtr {A B} :
+  Proper (eqtr ==> eqtr ==> flip impl) (@eqtr A B).
+Proof.
+unfold Proper, respectful, flip, impl; cbn.
+unfold eqtr; intros.
+transitivity y; auto.
+symmetry in H0.
+transitivity y0; auto.
+Qed.
+
+From Coq Require Import Program.Equality.
+
+(*
+Ltac step_in H :=
+match type of H with
+| gfp ?b ?x ?y => apply (gfp_fp b x y) in H
+| body (t ?b) ?R ?x ?y => apply (bt_t b R x y) in H
+| gfp ?b ?x => apply (gfp_fp b x) in H
+| body (t ?b) ?R ?x => apply (bt_t b R x) in H
+| _ => red in H; step_in H
+end.
+*)
+
+Ltac step_in H :=
+match type of H with
+| gfp ?b ?x ?y => apply (gfp_fp b x y) in H
+| gfp ?b ?x => apply (gfp_fp b x) in H
+| _ => red in H; step_in H
+end.
+
+Lemma eqtr_Tnil_inv {A B : Type} (a1 a2 : A) :
+ @eqtr A B (Tnil a1) (Tnil a2) ->
+ a1 = a2.
+Proof.
+unfold eqtr.
+intros Heq.
+step_in Heq.
+cbn in Heq.
+inversion Heq; subst.
+reflexivity.
+Qed.
+
+Print Assumptions eqtr_Tnil_inv.
+
+Search "gfp".
+apply gfp_prop in Heq.
+
+dependent induction Heq.
+apply (@sub_bChain _ _ _ _ eqtrb) in Heq.
