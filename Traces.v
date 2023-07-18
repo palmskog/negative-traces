@@ -185,42 +185,24 @@ symmetry in H0.
 transitivity y0; auto.
 Qed.
 
-From Coq Require Import Program.Equality.
-
-(*
-Ltac step_in H :=
-match type of H with
-| gfp ?b ?x ?y => apply (gfp_fp b x y) in H
-| body (t ?b) ?R ?x ?y => apply (bt_t b R x y) in H
-| gfp ?b ?x => apply (gfp_fp b x) in H
-| body (t ?b) ?R ?x => apply (bt_t b R x) in H
-| _ => red in H; step_in H
-end.
-*)
-
-Ltac step_in H :=
-match type of H with
-| gfp ?b ?x ?y => apply (gfp_fp b x y) in H
-| gfp ?b ?x => apply (gfp_fp b x) in H
-| _ => red in H; step_in H
-end.
-
 Lemma eqtr_Tnil_inv {A B : Type} (a1 a2 : A) :
  @eqtr A B (Tnil a1) (Tnil a2) ->
  a1 = a2.
 Proof.
-unfold eqtr.
-intros Heq.
-step_in Heq.
+unfold eqtr; intros Heq.
+apply (gfp_fp feqtr) in Heq.
 cbn in Heq.
 inversion Heq; subst.
 reflexivity.
 Qed.
 
-Print Assumptions eqtr_Tnil_inv.
-
-Search "gfp".
-apply gfp_prop in Heq.
-
-dependent induction Heq.
-apply (@sub_bChain _ _ _ _ eqtrb) in Heq.
+Lemma eqtr_Tcons_inv {A B : Type} a1 b1 tr1 a2 b2 tr2 :
+ @eqtr A B (Tcons a1 b1 tr1) (Tcons a2 b2 tr2) ->
+ a1 = a2 /\ b1 = b2 /\ eqtr tr1 tr2.
+Proof.
+unfold eqtr; intros Heq.
+apply (gfp_fp feqtr) in Heq.
+cbn in Heq.
+inversion Heq; subst.
+tauto.
+Qed.
