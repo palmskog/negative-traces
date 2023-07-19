@@ -349,7 +349,51 @@ Definition inftr {A B} := (gfp (@finftr A B)).
 #[export] Hint Unfold inftr: core.
 #[export] Hint Constructors inftrb: core.
 
-#[export] Instance Proper_inftr {A B} :
+#[export] Instance Proper_iff_inftr {A B} :
+ Proper (eqtr ==> iff) (@inftr A B).
+Proof.
+unfold Proper, respectful, flip, impl; cbn.
+intros x y Heq.
+split.
+- revert x y Heq.
+  unfold inftr at 2.
+  coinduction R H.
+  intros x y Heq Hx.
+  apply (gfp_fp feqtr) in Heq.
+  inversion Heq; subst.
+  * apply (gfp_fp finftr) in Hx.
+    inversion Hx; subst.
+    congruence.
+  * apply (gfp_fp finftr) in Hx.
+    inversion Hx; subst.
+    rewrite <- H1 in H3.
+    inversion H3; subst.
+    cbn.
+    unfold inftrb_.
+    rewrite <- H2.
+    constructor.
+    eapply H; eauto.
+- revert x y Heq.
+  unfold inftr at 2.
+  coinduction R H.
+  intros x y Heq Hy.
+  apply (gfp_fp feqtr) in Heq.
+  inversion Heq; subst.
+  * apply (gfp_fp finftr) in Hy.
+    inversion Hy; subst.
+    congruence.
+  * apply (gfp_fp finftr) in Hy.
+    inversion Hy; subst.
+    rewrite <- H2 in H3.
+    inversion H3; subst.
+    cbn.
+    unfold inftrb_.
+    rewrite <- H1.
+    constructor.
+    eapply H; eauto.
+Qed.
+
+#[export] Instance Proper_flip_impl_inftr {A B} :
  Proper (eqtr ==> flip impl) (@inftr A B).
 Proof.
 unfold Proper, respectful, flip, impl; cbn.
@@ -410,6 +454,9 @@ destruct (observe tr') eqn:?.
   cbn.
   unfold inftrb_.
   rewrite (observe_TnilF_tr_app _ _ Heqt).
+  cbn in H0.
+  unfold inftrb_ in H0.
+  cbn in H0.
   admit.
 - cbn.
   unfold inftrb_.
