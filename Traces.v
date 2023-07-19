@@ -39,18 +39,21 @@ Section Operations.
 
 Context {A B : Type}.
 
-Definition hd (tr : trace A B) : A :=
+Definition tr_hd (tr : trace A B) : A :=
 match observe tr with
 | TnilF a => a
 | TconsF a b tr0 => a
 end.
 
-Definition tr_app : trace A B -> trace A B -> trace A B :=
- cofix _tr_app (tr tr' : trace A B) :=
-  match observe tr with
+Definition tr_app' (tr' : trace A B) : trace' A B -> trace A B :=
+ cofix _tr_app (tr : trace' A B) :=
+ match tr with
   | TnilF a => tr'
-  | TconsF a b tr0 => Tcons a b (_tr_app tr0 tr')
+  | TconsF a b tr0 => Tcons a b (_tr_app (observe tr0) )
   end.
+
+Definition tr_app : trace A B -> trace A B -> trace A B :=
+ fun tr tr' => tr_app' tr' (observe tr).
 
 End Operations.
 
@@ -209,9 +212,9 @@ tauto.
 Qed.
 
 Lemma eqtr_hd {A B : Type} (tr1 tr2 : trace A B) :
- eqtr tr1 tr2 -> hd tr1 = hd tr2.
+ eqtr tr1 tr2 -> tr_hd tr1 = tr_hd tr2.
 Proof.
-unfold eqtr, hd; intros Heq.
+unfold eqtr, tr_hd; intros Heq.
 apply (gfp_fp feqtr) in Heq.
 cbn in Heq.
 destruct (observe tr1) eqn:?;
@@ -224,23 +227,15 @@ Qed.
 
 Import TraceNotations.
 
-Lemma observe_Tnil_tr_app {A B} : forall a (tr : trace A B),
- observe (Tnil a +++ tr) = observe tr.
+Lemma tr_app_unfold {A B} :
+  forall (tr tr' : trace A B),
+    eqtr (tr +++ tr')
+      (match observe tr with
+       | TnilF a => tr'
+       | TconsF a b tr0 => Tcons a b (tr0 +++ tr')
+       end).
 Proof.
-intros a tr; reflexivity.
-Qed.
-
-Lemma observe_Tnil_tr_app' {A B} : forall (a : A) (tr tr' : trace A B),
- observe tr = @TnilF A B _ a ->
- observe (tr +++ tr') = observe tr'.
-Proof.
-intros a tr tr' Heq; unfold tr_app.
-destruct (observe tr) eqn:?.
-- cbv in *.
-  inversion Heq; subst.  
-  rewrite Heqt.
-  reflexivity.
-- inversion Heq.
+  intros; now step.
 Qed.
 
 Lemma eqtr_Tnil_tr_app {A B} : forall a (tr : trace A B), eqtr (Tnil a +++ tr) tr.
@@ -249,11 +244,26 @@ intros a tr; unfold eqtr.
 step; reflexivity.
 Qed.
 
-Lemma observe_Tcons_tr_app {A B} : forall a b (tr tr' : trace A B),
- observe (Tcons a b tr +++ tr') = observe (Tcons a b (tr +++ tr')).
+Lemma eqtr_left_Tnil_tr_app {A B} :
+forall a (tr1 tr2 : trace A B),
+ eqtr (Tnil a +++ tr1) (Tnil a +++ tr2) ->
+ eqtr tr1 tr2.
 Proof.
-intros a b tr tr'.
-reflexivity.
+intros a tr1 tr2.
+rewrite tr_app_unfold.
+rewrite tr_app_unfold.
+cbn; auto.
+Qed.
+
+Lemma eqtr_left_tr_app_Tnil {A B} :
+forall a (tr1 tr2 : trace A B),
+ eqtr tr1 tr2 ->
+ eqtr (Tnil a +++ tr1) (Tnil a +++ tr2).
+Proof.
+intros a tr1 tr2.
+rewrite tr_app_unfold.
+rewrite tr_app_unfold.
+cbn; auto.
 Qed.
 
 Lemma eqtr_Tcons_tr_app {A B} : forall a b (tr tr' : trace A B),
@@ -264,138 +274,62 @@ step.
 reflexivity.
 Qed.
 
-Lemma observe_Tcons_tr_app' {A B} : forall (a : A) (b : B) (tr tr0 tr' : trace A B),
- observe tr = @TconsF A B _ a b tr0 ->
- observe (tr +++ tr') = observe (Tcons a b (tr0 +++ tr')).
-Proof.
-intros a b tr tr0 tr' Heq; unfold tr_app.
-destruct (observe tr) eqn:?.
-- inversion Heq.
-- cbv in *.
-  inversion Heq; subst.
-  rewrite Heqt.
-  reflexivity.
-Qed.
-
-Lemma observe_Tcons_tr_app'' {A B} : forall a b tr0 (tr tr' : trace A B),
- observe tr = @TconsF A B _ a b tr0 ->
- eqtr (tr +++ tr') (Tcons a b tr0 +++ tr').
-Proof.
-intros a b tr0 tr tr' Htr.
-step.
-rewrite (observe_Tcons_tr_app' _ _ Htr).
-cbn.
-constructor.
-reflexivity.
-Qed.
-
 Lemma eqtr_tr_app_left {A B} :
 forall (tr11 tr12 tr : trace A B),
  eqtr tr11 tr12 ->
  eqtr (tr11 +++ tr) (tr12 +++ tr).
 Proof.
-unfold eqtr; intros tr11 tr12 tr Heq.
-coinduction R H.
-destruct (observe tr11) eqn:?.
-- cbn.
-  apply (gfp_fp feqtr) in Heq.
-  cbn in Heq.
-  rewrite Heqt in Heq.
-  inversion Heq; subst.
-  rewrite (observe_Tnil_tr_app' _ _ Heqt).
-  symmetry in H2.
-  rewrite (observe_Tnil_tr_app' _ _ H2).
-  reflexivity.
-- cbn.
-  apply (gfp_fp feqtr) in Heq.
-  cbn in Heq.
-  rewrite Heqt in Heq.
-  inversion Heq; subst.
-  rewrite (observe_Tcons_tr_app' _ _ Heqt).
-  symmetry in H4.
-  rewrite (observe_Tcons_tr_app' _ _ H4).
-  cbn.
-  constructor.
-Abort.
+unfold eqtr at 2.
+coinduction r h; intros tr11 tr12 tr Heq.
+apply (gfp_fp feqtr) in Heq.
+rewrite tr_app_unfold.
+symmetry.
+rewrite tr_app_unfold.
+symmetry.
+inversion Heq; auto.
+constructor.
+apply h, REL.
+Qed.
 
-(*
 Lemma eqtr_tr_app {A B} : forall (tr1 tr2 tr3 tr4 : trace A B), 
- eqtr tr1 tr2 -> eqtr tr3 tr4 -> eqtr (tr1 +++ tr3) (tr2 +++ tr4).
+ eqtr tr1 tr2 ->
+ eqtr tr3 tr4 ->
+ eqtr (tr1 +++ tr3) (tr2 +++ tr4).
 Proof.
-unfold eqtr.
-intros tr1 tr2 tr3 tr4 Htr Htr'.
-destruct (observe tr1) eqn:?.
-- apply (gfp_fp feqtr) in Htr.
-  apply (gfp_fp feqtr) in Htr'.
-  cbn in Htr.
-  cbn in Htr'.
-  rewrite Heqt in Htr.
-  inversion Htr; subst.
-  symmetry in H.
-  step.
-  rewrite (observe_Tnil_tr_app' _ _ Heqt).
-  rewrite (observe_Tnil_tr_app' _ _ H).  
+unfold eqtr at 3.
+coinduction R H; intros tr1 tr2 tr3 tr4 Htr Htr'.
+apply (gfp_fp feqtr) in Htr.
+rewrite tr_app_unfold.
+symmetry.
+rewrite tr_app_unfold.
+symmetry.
+inversion Htr; auto.
+- rewrite (eqtr_left_Tnil_tr_app a); eauto.
+  apply eqtr_left_tr_app_Tnil.
   assumption.
-- apply (gfp_fp feqtr) in Htr.
+- constructor.
+  apply H; [assumption|].
   apply (gfp_fp feqtr) in Htr'.
-  cbn in Htr.
   cbn in Htr'.
-  rewrite Heqt in Htr.
-  inversion Htr; subst.
-  symmetry in H.
-  pose proof (observe_Tcons_tr_app'' _ tr3 Heqt).
-  pose proof (observe_Tcons_tr_app'' _ tr4 H).
-  cut (gfp feqtr (Tcons a b tr +++ tr3) ((Tcons a b tr5 +++ tr4))). {
-    intros Heq.
-    transitivity (Tcons a b tr +++ tr3); [assumption|].
-    transitivity (Tcons a b tr5 +++ tr4); [assumption|].
-    symmetry.
-    assumption.
-  }
-  clear Htr Htr' Heqt H H0 H1.
-  revert H0.
-  coinduction R H2.
-  step.
-  rewrite observe_Tcons_tr_app.
-  rewrite observe_Tcons_tr_app.
-  cbn.
-  constructor.
-  transitivity (Tcons a b tr +++ tr3).
-  
+  step; assumption.
+Qed.
 
-  apply (gfp_fp feqtr) in H0.
-  apply (gfp_fp feqtr) in H1.
-  coinduction R H2.
-  cbn.
-  rewrite (observe_Tcons_tr_app' _ _ Heqt).
-  rewrite (observe_Tcons_tr_app' _ _ H).  
-  cbn.
-  constructor.
-  apply H0.
-  
-  coinduction R H.
-
-  constructor.
-  step.
-
-  cbn in H.
-  cbn in H0.
-  rewrite Heqt in H.
-  inversion H; subst.
-  symmetry in H3.
-  cbv in *.
-  rewrite Heqt, H3.
+Lemma eqtr_left_tr_app {A B} :
+forall (tr tr1 tr2 : trace A B),
+ eqtr (tr +++ tr1) (tr +++ tr2) ->
+ eqtr tr1 tr2.
+Proof.
+unfold eqtr at 2.
+coinduction R H; intros tr tr1 tr2.
+rewrite tr_app_unfold.
+rewrite tr_app_unfold.
+destruct (observe tr) eqn:?.
+- intros Heq.
+  rewrite (eqtr_left_Tnil_tr_app a); eauto.
+  apply eqtr_left_tr_app_Tnil.
   assumption.
-- intros; step.
-  apply (gfp_fp feqtr) in H.
-  apply (gfp_fp feqtr) in H0.
-  cbn in H.
-  cbn in H0.
-  rewrite Heqt in H.
-  inversion H; subst.
-  symmetry in H5.
-  cbv in *.
-  rewrite Heqt, H5.
-  constructor.
+- intros Heq.
+  apply (gfp_fp feqtr) in Heq.
+  cbn in Heq.
+  inversion Heq; subst.
 Admitted.
-*)
