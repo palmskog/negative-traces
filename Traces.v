@@ -45,16 +45,17 @@ match observe tr with
 | TconsF a b tr0 => a
 end.
 
-CoFixpoint trace_append (tr tr' : trace A B) : trace A B :=
-match observe tr with
-| TnilF a => tr'
-| TconsF a b tr0 => Tcons a b (trace_append tr' tr0)
-end.
+Definition tr_app : trace A B -> trace A B -> trace A B :=
+ cofix _tr_app (tr tr' : trace A B) :=
+  match observe tr with
+  | TnilF a => tr'
+  | TconsF a b tr0 => Tcons a b (_tr_app tr0 tr')
+  end.
 
 End Operations.
 
 Module TraceNotations.
-Infix "+++" := trace_append (at level 60, right associativity) : trace_scope.
+Infix "+++" := tr_app (at level 60, right associativity) : trace_scope.
 End TraceNotations.
 
 Section Eqtr.
@@ -196,8 +197,8 @@ inversion Heq; subst.
 reflexivity.
 Qed.
 
-Lemma eqtr_Tcons_inv {A B : Type} a1 b1 tr1 a2 b2 tr2 :
- @eqtr A B (Tcons a1 b1 tr1) (Tcons a2 b2 tr2) ->
+Lemma eqtr_Tcons_inv {A B : Type} a1 a2 b1 b2 (tr1 tr2 : trace A B) :
+ eqtr (Tcons a1 b1 tr1) (Tcons a2 b2 tr2) ->
  a1 = a2 /\ b1 = b2 /\ eqtr tr1 tr2.
 Proof.
 unfold eqtr; intros Heq.
@@ -206,3 +207,42 @@ cbn in Heq.
 inversion Heq; subst.
 tauto.
 Qed.
+
+Lemma eqtr_hd {A B : Type} (tr1 tr2 : trace A B) :
+ eqtr tr1 tr2 -> hd tr1 = hd tr2.
+Proof.
+unfold eqtr, hd; intros Heq.
+apply (gfp_fp feqtr) in Heq.
+cbn in Heq.
+destruct (observe tr1) eqn:?;
+ destruct (observe tr2) eqn:?.
+- inversion Heq; subst; reflexivity.
+- inversion Heq.
+- inversion Heq.
+- inversion Heq; subst; reflexivity.
+Qed.
+
+Import TraceNotations.
+
+Lemma eqtr_Tnil_tr_app {A B} : forall a (tr : trace A B), eqtr (Tnil a +++ tr) tr.
+Proof.
+intros a tr; unfold eqtr.
+step; reflexivity.
+Qed.
+
+Lemma eqtr_Tcons_tr_app {A B} : forall a b (tr tr' : trace A B),
+ eqtr (Tcons a b tr +++ tr') (Tcons a b (tr +++ tr')).
+Proof.
+intros a b tr tr'.
+step.
+reflexivity.
+Qed.
+
+Lemma eqtr_tr_app {A B} : forall (tr1 tr2 tr3 tr4 : trace A B), 
+ eqtr tr1 tr2 -> eqtr tr3 tr4 -> eqtr (tr1 +++ tr3) (tr2 +++ tr4).
+Proof.
+unfold eqtr.
+intros tr1.
+destruct (observe tr1) eqn:?.
+- intros; step.
+Admitted.
