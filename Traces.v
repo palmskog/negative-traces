@@ -304,9 +304,7 @@ symmetry.
 rewrite tr_app_unfold.
 symmetry.
 inversion Htr; auto.
-- rewrite (eqtr_left_Tnil_tr_app a); eauto.
-  apply eqtr_left_tr_app_Tnil.
-  assumption.
+- rewrite Htr'; reflexivity.
 - constructor.
   apply H; [assumption|].
   apply (gfp_fp feqtr) in Htr'.
