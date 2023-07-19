@@ -314,22 +314,22 @@ inversion Htr; auto.
   step; assumption.
 Qed.
 
-Lemma eqtr_left_tr_app {A B} :
-forall (tr tr1 tr2 : trace A B),
- eqtr (tr +++ tr1) (tr +++ tr2) ->
- eqtr tr1 tr2.
+Lemma eqtr_zeros_tr_app : 
+ forall tr tr', eqtr (zeros +++ tr) (zeros +++ tr').
 Proof.
-unfold eqtr at 2.
-coinduction R H; intros tr tr1 tr2.
+unfold eqtr.
+coinduction R H.
+intros tr tr'.
 rewrite tr_app_unfold.
+symmetry.
 rewrite tr_app_unfold.
-destruct (observe tr) eqn:?.
-- intros Heq.
-  rewrite (eqtr_left_Tnil_tr_app a); eauto.
-  apply eqtr_left_tr_app_Tnil.
-  assumption.
-- intros Heq.
-  apply (gfp_fp feqtr) in Heq.
-  cbn in Heq.
-  inversion Heq; subst.
-Admitted.
+symmetry.
+destruct (observe zeros) eqn:?.
+- cbn in Heqt.
+  inversion Heqt.
+- constructor.
+  cbn in Heqt.
+  inversion Heqt.
+  subst.
+  apply H.
+Qed.
