@@ -105,25 +105,21 @@ Proof. apply Reflexive_chain. now cbn. Qed.
 #[export] Instance Symmetric_eqtrb {A B : Type} {R} {Hr: Symmetric R} :
  Symmetric (@eqtrb A B R).
 Proof.
-intros [a|a b tr].
-- intros [a'|a' b' tr'] Heq.
-  * inversion Heq; subst.
-    constructor.
-  * inversion Heq.
-- intros [a'|a' b' tr'] Heq.
-  * inversion Heq.
-  * inversion Heq; subst.
-    constructor.
-    symmetry.
-    assumption.
+intros [a|a b tr]; intros [a'|a' b' tr'] Heq.
+- inversion Heq; subst.
+  constructor.
+- inversion Heq.
+- inversion Heq.
+- inversion Heq; subst.
+  constructor; now symmetry.
 Qed.
 
 #[export] Instance Symmetric_feqtr {A B : Type} : forall {R: Chain (@feqtr A B)}, Symmetric `R.
 Proof.
-  apply Symmetric_chain. 
-  intros R HR.
-  intros x y xy.
-  now apply Symmetric_eqtrb.
+apply Symmetric_chain. 
+intros R HR.
+intros x y xy.
+now apply Symmetric_eqtrb.
 Qed.
 
 #[export] Instance Transitive_eqtrb {A B : Type} {R} {Hr: Transitive R} :
@@ -131,8 +127,7 @@ Qed.
 Proof.
 intros [xa|xa xb xtr]; intros [ya|ya yb ytr]; intros [za|za zb ztr] Heqx Heqy.
 - inversion Heqx; subst.
-  inversion Heqy; subst.
-  constructor.
+  inversion Heqy; subst; constructor.
 - inversion Heqy; subst.
 - inversion Heqx.
 - inversion Heqx.
@@ -141,17 +136,15 @@ intros [xa|xa xb xtr]; intros [ya|ya yb ytr]; intros [za|za zb ztr] Heqx Heqy.
 - inversion Heqy.
 - inversion Heqx; subst.
   inversion Heqy; subst.
-  constructor.
-  revert REL REL0.
-  apply Hr.
+  constructor; revert REL REL0; apply Hr.
 Qed.
 
 #[export] Instance Transitive_feqtr {A B : Type} : forall {R: Chain (@feqtr A B)}, Transitive `R.
 Proof.
-  apply Transitive_chain. 
-  intros R HR.
-  intros x y z.
-  now apply Transitive_eqtrb.
+apply Transitive_chain. 
+intros R HR.
+intros x y z.
+now apply Transitive_eqtrb.
 Qed.
 
 #[export] Instance Equivalence_eqtr {A B}: Equivalence (@eqtr A B).
