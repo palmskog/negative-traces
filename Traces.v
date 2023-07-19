@@ -84,8 +84,8 @@ Qed.
 End Eqtr.
 
 Definition eqtr {A B} := (gfp (@feqtr A B)).
-#[global] Hint Unfold eqtr: core.
-#[global] Hint Constructors eqtrb: core.
+#[export] Hint Unfold eqtr: core.
+#[export] Hint Constructors eqtrb: core.
 Arguments eqtrb_ _ _/.
 
 Ltac fold_eqtr :=
@@ -324,3 +324,98 @@ destruct (observe zeros) eqn:?.
   subst.
   apply H.
 Qed.
+
+Section Inftr.
+
+Context {A B : Type}.
+
+Variant inftrb (ifr : trace A B -> Prop) : trace' A B -> Prop :=
+| Inf_Tcons a b tr (PROP : ifr tr) : inftrb ifr (TconsF a b tr).
+Hint Constructors inftrb: core.
+
+Definition inftrb_ ifr : trace A B -> Prop :=
+ fun tr => inftrb ifr (observe tr).
+
+Program Definition finftr: mon (trace A B -> Prop) := {| body := inftrb_ |}.
+Next Obligation.
+  unfold pointwise_relation, Basics.impl, inftrb_.
+  intros PX PY PXY Z INF.
+  inversion_clear INF; auto.
+Qed.
+
+End Inftr.
+
+Definition inftr {A B} := (gfp (@finftr A B)).
+#[export] Hint Unfold inftr: core.
+#[export] Hint Constructors inftrb: core.
+
+#[export] Instance Proper_inftr {A B} :
+ Proper (eqtr ==> flip impl) (@inftr A B).
+Proof.
+unfold Proper, respectful, flip, impl; cbn.
+unfold inftr at 2.
+coinduction R H.
+intros x y Heqtr Hiftr.
+apply (gfp_fp feqtr) in Heqtr.
+inversion Heqtr; subst.
+- apply (gfp_fp finftr) in Hiftr.
+  inversion Hiftr; subst.
+  congruence.
+- apply (gfp_fp finftr) in Hiftr.
+  inversion Hiftr; subst.
+  rewrite <- H3 in H2.
+  inversion H2; subst.
+  cbn.
+  unfold inftrb_.
+  rewrite <- H1.
+  constructor.
+  eapply H; eauto.
+Qed.
+
+Lemma inftr_Tcons {A B} : forall a b (tr : trace A B),
+ inftr (Tcons a b tr) -> inftr tr.
+Proof.
+unfold inftr.
+intros a b tr Htr.
+apply (gfp_fp finftr) in Htr.
+now inversion Htr; subst.
+Qed.
+
+Lemma observe_TnilF_tr_app {A B} : forall a (tr tr' : trace A B),
+ observe tr = TnilF a ->
+ observe (tr +++ tr') = observe tr'.
+Proof.
+intros.
+cbv in *.
+rewrite H; reflexivity.
+Qed.
+
+Lemma observe_TconsF_tr_app {A B} : forall a b tr0 (tr tr' : trace A B),
+ observe tr = TconsF a b tr0 ->
+ observe (tr +++ tr') = observe (Tcons a b (tr0 +++ tr')) .
+Proof.
+intros.
+cbv in *.
+rewrite H; reflexivity.
+Qed.
+
+Lemma inftr_tr_app {A B} : forall (tr : trace A B), 
+ inftr tr -> forall tr', inftr (tr' +++ tr).
+Proof.
+unfold inftr at 2.
+coinduction R H.
+intros.
+destruct (observe tr') eqn:?.
+- apply (gfp_fp finftr) in H0.
+  cbn.
+  unfold inftrb_.
+  rewrite (observe_TnilF_tr_app _ _ Heqt).
+  admit.
+- cbn.
+  unfold inftrb_.
+  rewrite (observe_TconsF_tr_app _ _ Heqt).
+  cbn.
+  constructor.
+  apply H.
+  assumption.
+Admitted.
