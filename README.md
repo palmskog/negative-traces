@@ -10,7 +10,8 @@ for capturing labeled transition systems.
   - Karl Palmskog
 - License: [MIT License](LICENSE)
 - Compatible Coq versions: 8.16 or later
-- Additional dependencies: none
+- Additional dependencies:
+  - [coinduction](https://github.com/damien-pous/coinduction) 1.7 or later
 - Coq namespace: `NegativeTraces`
 
 ## Building instructions
@@ -27,6 +28,7 @@ make   # or make -j <number-of-cores-on-your-machine>
 
 Definitions and properties are inspired by
 [Coinductive Trace-Based Semantics for While][coind-sem-url]
-by Nakata and Uustalu.
+and [Choice Trees][choice-trees-url].
 
 [coind-sem-url]: https://github.com/palmskog/coind-sem-while
+[choice-trees-url]: https://github.com/vellvm/ctrees
