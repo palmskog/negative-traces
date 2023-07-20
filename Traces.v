@@ -1,15 +1,21 @@
 From Coq Require Import RelationClasses Program.Basics.
 From Coinduction Require Import all.
 
+(** * Possibly-infinite traces using negative coinduction *)
+
+(** ** General utility results *)
+
 Import CoindNotations.
 
-Lemma gfp_leq_chain {X} {L : CompleteLattice X} (b : mon X) (R : Chain b) :
+Lemma gfp_leq_Chain {X} {L : CompleteLattice X} (b : mon X) (R : Chain b) :
   gfp b <= b ` R.
 Proof.
   rewrite <- (gfp_fp b).
   apply b.
   eapply gfp_chain.
 Qed.
+
+(** ** Basic trace definitions *)
 
 Set Implicit Arguments.
 Set Contextual Implicit.
@@ -43,6 +49,8 @@ Definition observe {A B} (tr : trace A B) : trace' A B :=
 Notation Tnil a := (go (TnilF a)).
 Notation Tcons a b tr := (go (TconsF a b tr)).
 
+(** ** Basic trace operations *)
+
 Section Operations.
 
 Context {A B : Type}.
@@ -68,6 +76,8 @@ End Operations.
 Module TraceNotations.
 Infix "+++" := tr_app (at level 60, right associativity) : trace_scope.
 End TraceNotations.
+
+(** ** Trace equality as a bisimulation *)
 
 Section Eqtr.
 
@@ -158,28 +168,6 @@ Qed.
 #[export] Instance Equivalence_eqtr {A B}: Equivalence (@eqtr A B).
 Proof. split; typeclasses eauto. Qed.
 
-Lemma eqtr_eta_ {A B : Type} (tr : trace A B) : eqtr tr (go (_observe tr)).
-Proof. now step. Qed.
-
-Lemma eqtr_eta {A B : Type} (tr : trace A B) : eqtr tr (go (observe tr)).
-Proof. now step. Qed.
-
-CoFixpoint zeros : trace nat unit := Tcons 0 tt zeros.
-Definition zeros' : trace nat unit := Tcons 0 tt (Tcons 0 tt zeros).
-
-Lemma zeros_zeros_eqtr : eqtr zeros zeros.
-Proof. reflexivity. Qed.
-
-Lemma zeros_zeros_one_eqtr : eqtr zeros (Tcons 0 tt zeros).
-Proof. unfold eqtr; step; cbn; reflexivity. Qed.
-
-Lemma zeros_zeros'_eqtr : eqtr zeros zeros'.
-Proof.
-unfold eqtr, zeros'.
-step; cbn; constructor; cbn.
-apply zeros_zeros_one_eqtr.
-Qed.
-
 #[export] Instance Proper_eqtr {A B} :
   Proper (eqtr ==> eqtr ==> flip impl) (@eqtr A B).
 Proof.
@@ -189,6 +177,12 @@ transitivity y; auto.
 symmetry in H0.
 transitivity y0; auto.
 Qed.
+
+Lemma eqtr_eta_ {A B : Type} (tr : trace A B) : eqtr tr (go (_observe tr)).
+Proof. now step. Qed.
+
+Lemma eqtr_eta {A B : Type} (tr : trace A B) : eqtr tr (go (observe tr)).
+Proof. now step. Qed.
 
 Lemma eqtr_Tnil_inv {A B : Type} (a1 a2 : A) :
  @eqtr A B (Tnil a1) (Tnil a2) ->
@@ -212,6 +206,28 @@ inversion Heq; subst.
 tauto.
 Qed.
 
+(** ** Validation on infinite trace of zeros *)
+
+CoFixpoint zeros : trace nat unit := Tcons 0 tt zeros.
+Definition zeros' : trace nat unit := Tcons 0 tt (Tcons 0 tt zeros).
+
+Lemma zeros_zeros_eqtr : eqtr zeros zeros.
+Proof. reflexivity. Qed.
+
+Lemma zeros_zeros_one_eqtr : eqtr zeros (Tcons 0 tt zeros).
+Proof. unfold eqtr; step; cbn; reflexivity. Qed.
+
+Lemma zeros_zeros'_eqtr : eqtr zeros zeros'.
+Proof.
+unfold eqtr, zeros'.
+step; cbn; constructor; cbn.
+apply zeros_zeros_one_eqtr.
+Qed.
+
+(** ** Properties of operations *)
+
+Import TraceNotations.
+
 Lemma eqtr_hd {A B : Type} (tr1 tr2 : trace A B) :
  eqtr tr1 tr2 -> tr_hd tr1 = tr_hd tr2.
 Proof.
@@ -225,8 +241,6 @@ destruct (observe tr1) eqn:?;
 - inversion Heq.
 - inversion Heq; subst; reflexivity.
 Qed.
-
-Import TraceNotations.
 
 Lemma observe_TnilF_tr_app {A B} : forall a (tr tr' : trace A B),
  observe tr = TnilF a ->
@@ -351,6 +365,8 @@ destruct (observe zeros) eqn:?.
   apply H.
 Qed.
 
+(** ** Infinite trace definitions *)
+
 Section Inftr.
 
 Context {A B : Type}.
@@ -446,6 +462,8 @@ split.
     eapply H; eauto.
 Qed.
 
+(** ** Infinite trace properties *)
+
 Lemma inftr_Tcons {A B} : forall a b (tr : trace A B),
  inftr (Tcons a b tr) -> inftr tr.
 Proof.
@@ -464,7 +482,7 @@ Proof.
   intros tr'.
   rewrite tr_app_unfold.
   destruct (observe tr') eqn:?.
-  - now eapply (gfp_leq_chain finftr).
+  - now eapply (gfp_leq_Chain finftr).
   - constructor; apply H.
 Qed.
 
@@ -484,6 +502,8 @@ Proof.
   apply (gfp_fp finftr) in PRED.
   now apply (gfp_fp finftr).
 Qed.
+
+(** ** Finite trace definitions *)
 
 Inductive fintr {A B} : trace A B -> Prop :=
 | Fin_Tnil : forall a tr,
