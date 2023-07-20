@@ -517,6 +517,87 @@ Inductive fintr {A B} : trace A B -> Prop :=
 
 Lemma fintr_Tnil {A B} : forall (a : A),
  @fintr A B (Tnil a).
+Proof. intros; econstructor; eauto. Qed.
+
+#[export] Instance Proper_fintr {A B} :
+ Proper (eqtr ==> flip impl) (@fintr A B).
 Proof.
-intros; econstructor; eauto.
+unfold Proper, respectful, flip, impl; cbn.
+intros x y Heq Hy.
+apply (gfp_fp feqtr) in Heq.
+revert Hy x Heq.
+induction 1.
+- intros x Heq.
+  inversion Heq; subst; [|congruence].
+  symmetry in H1.
+  revert H1.
+  apply Fin_Tnil.
+- intros x Heq.
+  inversion Heq; subst; [congruence|].
+  rewrite <- H2 in H.
+  inversion H; subst; clear H.
+  symmetry in H1.
+  apply (Fin_Tcons H1).
+  apply IHHy.
+  now apply (gfp_fp feqtr) in REL.
 Qed.
+
+(** ** Finite trace properties *)
+
+Lemma invert_fintr_delay {A B} : forall a b (tr : trace A B) (h : fintr (Tcons a b tr)), fintr tr.
+Proof.
+intros a b tr h; inversion h; cbn in H.
+- congruence.
+- now inversion H; subst.
+Qed.
+
+Lemma fintr_inftr_not {A B} : forall(tr : trace A B),
+ fintr tr -> inftr tr -> False.
+Proof.
+intros tr; induction 1; intros Hinf.
+- apply (gfp_fp finftr) in Hinf.
+  inversion Hinf; subst.
+  congruence.
+- apply (gfp_fp finftr) in Hinf.
+  inversion Hinf; subst.
+  rewrite H in H2.
+  inversion H2; subst.
+  apply IHfintr.
+  now apply (gfp_fp finftr).
+Qed.
+
+Lemma not_fintr_inftr {A B} : forall(tr : trace A B),
+ ~ fintr tr -> inftr tr.
+Proof.
+unfold inftr.
+coinduction R H.
+intros tr Hfin.
+destruct (observe tr) eqn:?.
+- contradict Hfin.
+  revert Heqt.
+  apply Fin_Tnil.
+- cbn.
+  unfold inftrb_.
+  rewrite Heqt.
+  constructor.
+  apply H.
+  intros Hf.
+  contradict Hfin.
+  revert Heqt Hf.
+  apply Fin_Tcons.
+Qed.
+
+(** * Final element properties *)
+
+Inductive finaltr {A B} : trace A B -> A -> Prop :=
+| Final_Tnil : forall a,
+   finaltr (Tnil a) a
+| Final_Tcons : forall a b a' tr,
+   finaltr tr a' ->
+   finaltr (Tcons a b tr) a'.
+
+Fail Fixpoint final {A B} (tr : trace A B) (h : fintr tr) {struct h} : A :=
+match observe tr as tr' return (_ -> A) with
+| TnilF a => fun _ => a
+| TconsF a b tr => fun h => final (invert_fintr_delay h)
+end h.
