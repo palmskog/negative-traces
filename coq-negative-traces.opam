@@ -1,0 +1,26 @@
+opam-version: "2.0"
+maintainer: "palmskog@gmail.com"
+version: "dev"
+
+homepage: "https://github.com/palmskog/negative-traces"
+dev-repo: "git+https://github.com/palmskog/negative-traces.git"
+bug-reports: "https://github.com/palmskog/negative-traces/issues"
+license: "MIT"
+
+synopsis: "Possibly-infinite traces and their properties in Coq via negative coinduction"
+description: """
+Development in Coq of possibly-infinite traces and properties
+of such traces via negative coinduction and corecursion, useful
+for describing labeled transition systems."""
+
+build: [make "-j%{jobs}%"]
+install: [make "install"]
+depends: [
+  "coq" {>= "8.16"}
+  "coq-coinduction" {>= "1.7"}
+]
+
+authors: [
+  "Karl Palmskog"
+  "Yannick Zakowski"
+]
