@@ -3,6 +3,14 @@ From Coinduction Require Import all.
 
 Import CoindNotations.
 
+Lemma gfp_leq_chain {X} {L : CompleteLattice X} (b : mon X) (R : Chain b) :
+  gfp b <= b ` R.
+Proof.
+  rewrite <- (gfp_fp b).
+  apply b.
+  eapply gfp_chain.
+Qed.
+
 Set Implicit Arguments.
 Set Contextual Implicit.
 Set Primitive Projections.
@@ -456,12 +464,7 @@ Proof.
   intros tr'.
   rewrite tr_app_unfold.
   destruct (observe tr') eqn:?.
-  - apply (gfp_fp finftr) in INF.
-    cbn; red.
-    do 3 red in INF.
-    inversion INF.
-    constructor.
-    now apply (gfp_chain R tr0).
+  - now eapply (gfp_leq_chain finftr).
   - constructor; apply H.
 Qed.
 
