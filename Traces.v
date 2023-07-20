@@ -220,6 +220,24 @@ Qed.
 
 Import TraceNotations.
 
+Lemma observe_TnilF_tr_app {A B} : forall a (tr tr' : trace A B),
+ observe tr = TnilF a ->
+ observe (tr +++ tr') = observe tr'.
+Proof.
+intros.
+cbv in *.
+rewrite H; reflexivity.
+Qed.
+
+Lemma observe_TconsF_tr_app {A B} : forall a b tr0 (tr tr' : trace A B),
+ observe tr = TconsF a b tr0 ->
+ observe (tr +++ tr') = observe (Tcons a b (tr0 +++ tr')) .
+Proof.
+intros.
+cbv in *.
+rewrite H; reflexivity.
+Qed.
+
 Lemma tr_app_unfold {A B} :
   forall (tr tr' : trace A B),
     eqtr (tr +++ tr')
@@ -349,6 +367,33 @@ Definition inftr {A B} := (gfp (@finftr A B)).
 #[export] Hint Unfold inftr: core.
 #[export] Hint Constructors inftrb: core.
 
+#[export] Instance inftr_upto_eqtr {A B} {R : Chain (@finftr A B)} :
+ Proper (eqtr ==> flip impl) (` R).
+Proof.
+  apply tower.
+  - unfold Proper, respectful.
+    apply inf_closed_all; intros ?.
+    apply inf_closed_all; intros ?.
+    apply inf_closed_impl.
+    now intros ???.
+    apply inf_closed_impl.
+    now intros ???.
+    now intros ??.
+  - clear R; intros R HP tr tr' EQ INF.
+    apply (gfp_fp feqtr) in EQ.
+    cbn in *; red in INF |- *.
+    inversion EQ.
+    + rewrite <- H in INF; inversion INF.
+    + constructor.
+      rewrite <- H in INF; inversion INF; subst.
+      eapply HP; eauto.
+Qed.
+
+#[export] Instance Proper_inftr {A B} :
+ Proper (eqtr ==> flip impl) (@inftr A B).
+Proof. typeclasses eauto. Qed.
+
+
 #[export] Instance Proper_iff_inftr {A B} :
  Proper (eqtr ==> iff) (@inftr A B).
 Proof.
@@ -393,29 +438,6 @@ split.
     eapply H; eauto.
 Qed.
 
-#[export] Instance Proper_flip_impl_inftr {A B} :
- Proper (eqtr ==> flip impl) (@inftr A B).
-Proof.
-unfold Proper, respectful, flip, impl; cbn.
-unfold inftr at 2.
-coinduction R H.
-intros x y Heqtr Hiftr.
-apply (gfp_fp feqtr) in Heqtr.
-inversion Heqtr; subst.
-- apply (gfp_fp finftr) in Hiftr.
-  inversion Hiftr; subst.
-  congruence.
-- apply (gfp_fp finftr) in Hiftr.
-  inversion Hiftr; subst.
-  rewrite <- H3 in H2.
-  inversion H2; subst.
-  cbn.
-  unfold inftrb_.
-  rewrite <- H1.
-  constructor.
-  eapply H; eauto.
-Qed.
-
 Lemma inftr_Tcons {A B} : forall a b (tr : trace A B),
  inftr (Tcons a b tr) -> inftr tr.
 Proof.
@@ -425,24 +447,6 @@ apply (gfp_fp finftr) in Htr.
 now inversion Htr; subst.
 Qed.
 
-Lemma observe_TnilF_tr_app {A B} : forall a (tr tr' : trace A B),
- observe tr = TnilF a ->
- observe (tr +++ tr') = observe tr'.
-Proof.
-intros.
-cbv in *.
-rewrite H; reflexivity.
-Qed.
-
-Lemma observe_TconsF_tr_app {A B} : forall a b tr0 (tr tr' : trace A B),
- observe tr = TconsF a b tr0 ->
- observe (tr +++ tr') = observe (Tcons a b (tr0 +++ tr')) .
-Proof.
-intros.
-cbv in *.
-rewrite H; reflexivity.
-Qed.
-
 Lemma inftr_tr_app {A B} : forall (tr : trace A B),
  inftr tr -> forall tr', inftr (tr' +++ tr).
 Proof.
@@ -450,18 +454,15 @@ Proof.
   unfold inftr.
   coinduction R H.
   intros tr'.
+  rewrite tr_app_unfold.
   destruct (observe tr') eqn:?.
-  - do 3 red; unfold observe; cbn.
-    rewrite Heqt.
-    apply (gfp_fp finftr) in INF.
-    do 3 red in INF. unfold observe in INF.
+  - apply (gfp_fp finftr) in INF.
+    cbn; red.
+    do 3 red in INF.
     inversion INF.
     constructor.
-    pose proof gfp_chain R tr0.
-    apply H0, PRED.
-  - do 3 red; unfold observe; cbn.
-    rewrite Heqt; cbn.
-    constructor; apply H.
+    now apply (gfp_chain R tr0).
+  - constructor; apply H.
 Qed.
 
 Lemma tr_app_inftr {A B} : forall (tr : trace A B),
@@ -478,8 +479,7 @@ Proof.
   constructor.
   apply H.
   apply (gfp_fp finftr) in PRED.
-  apply (gfp_fp finftr).
-  assumption.
+  now apply (gfp_fp finftr).
 Qed.
 
 Inductive fintr {A B} : trace A B -> Prop :=
