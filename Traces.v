@@ -443,26 +443,24 @@ cbv in *.
 rewrite H; reflexivity.
 Qed.
 
-Lemma inftr_tr_app {A B} : forall (tr : trace A B), 
+Lemma inftr_tr_app {A B} : forall (tr : trace A B),
  inftr tr -> forall tr', inftr (tr' +++ tr).
 Proof.
-unfold inftr at 2.
-coinduction R H.
-intros.
-destruct (observe tr') eqn:?.
-- apply (gfp_fp finftr) in H0.
-  cbn.
-  unfold inftrb_.
-  rewrite (observe_TnilF_tr_app _ _ Heqt).
-  cbn in H0.
-  unfold inftrb_ in H0.
-  cbn in H0.
-  admit.
-- cbn.
-  unfold inftrb_.
-  rewrite (observe_TconsF_tr_app _ _ Heqt).
-  cbn.
-  constructor.
-  apply H.
-  assumption.
-Admitted.
+  intros tr INF.
+  unfold inftr.
+  coinduction R H.
+  intros tr'.
+  destruct (observe tr') eqn:?.
+  - do 3 red; unfold observe; cbn.
+    rewrite Heqt.
+    apply (gfp_fp finftr) in INF.
+    do 3 red in INF. unfold observe in INF.
+    inversion INF.
+    constructor.
+    pose proof gfp_chain R tr0.
+    apply H0, PROP.
+  - do 3 red; unfold observe; cbn.
+    rewrite Heqt; cbn.
+    constructor; apply H.
+Qed.
+
