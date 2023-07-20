@@ -464,6 +464,24 @@ Proof.
     constructor; apply H.
 Qed.
 
+Lemma tr_app_inftr {A B} : forall (tr : trace A B),
+ inftr tr -> forall tr', inftr (tr +++ tr').
+Proof.
+  unfold inftr at 2.
+  coinduction R H.
+  intros tr Hinf tr'.
+  apply (gfp_fp finftr) in Hinf.
+  inversion Hinf.
+  do 3 red; unfold observe; cbn.
+  rewrite <- H1.
+  cbn.
+  constructor.
+  apply H.
+  apply (gfp_fp finftr) in PRED.
+  apply (gfp_fp finftr).
+  assumption.
+Qed.
+
 Inductive fintr {A B} : trace A B -> Prop :=
 | Fin_Tnil : forall a tr,
    observe tr = TnilF a ->
