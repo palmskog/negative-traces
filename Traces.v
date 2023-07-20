@@ -464,3 +464,18 @@ Proof.
     constructor; apply H.
 Qed.
 
+Inductive fintr {A B} : trace A B -> Prop :=
+| Fin_Tnil : forall a tr,
+   observe tr = TnilF a ->
+   fintr tr
+| Fin_Tcons : forall a b tr tr',
+   observe tr = TconsF a b tr' ->
+   fintr tr' ->
+   fintr tr.
+#[export] Hint Constructors fintr : core.
+
+Lemma fintr_Tnil {A B} : forall (a : A),
+ @fintr A B (Tnil a).
+Proof.
+intros; econstructor; eauto.
+Qed.
