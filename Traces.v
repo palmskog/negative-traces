@@ -330,7 +330,7 @@ Section Inftr.
 Context {A B : Type}.
 
 Variant inftrb (ifr : trace A B -> Prop) : trace' A B -> Prop :=
-| Inf_Tcons a b tr (PROP : ifr tr) : inftrb ifr (TconsF a b tr).
+| Inf_Tcons a b tr (PRED : ifr tr) : inftrb ifr (TconsF a b tr).
 Hint Constructors inftrb: core.
 
 Definition inftrb_ ifr : trace A B -> Prop :=
@@ -458,7 +458,7 @@ Proof.
     inversion INF.
     constructor.
     pose proof gfp_chain R tr0.
-    apply H0, PROP.
+    apply H0, PRED.
   - do 3 red; unfold observe; cbn.
     rewrite Heqt; cbn.
     constructor; apply H.
