@@ -584,6 +584,18 @@ Qed.
 
 (** * Final element properties *)
 
+Inductive finaltr' {A B} : trace' A B -> A -> Prop :=
+| Final_Tnil : forall a,
+   finaltr' (TnilF a) a
+| Final_Tcons : forall a b a' tr,
+   finaltr' (observe tr) a' ->
+   finaltr' (TconsF a b tr) a'.
+#[export] Hint Constructors finaltr' : core.
+Arguments Final_Tnil {A B} a.
+
+Definition finaltr {A B} : trace A B -> A -> Prop :=
+ fun tr => finaltr' (observe tr).
+
 Definition final' {A B : Type} : forall (tr: trace' A B), fintr' tr -> A :=
   fix F (tr : trace' A B) (h : fintr' tr) {struct h} : A :=
     match tr as tr' return (fintr' tr' -> A) with
@@ -594,9 +606,65 @@ Definition final' {A B : Type} : forall (tr: trace' A B), fintr' tr -> A :=
 Definition final {A B} (tr : trace A B) (Fin : fintr tr) : A :=
  final' Fin.
 
-Inductive finaltr {A B} : trace A B -> A -> Prop :=
-| Final_Tnil : forall a,
-   finaltr (Tnil a) a
-| Final_Tcons : forall a b a' tr,
-   finaltr tr a' ->
-   finaltr (Tcons a b tr) a'.
+Lemma finaltr_finitetr {A B} : forall (tr : trace A B) a,
+ finaltr tr a -> fintr tr.
+Proof.
+refine (fix IH tr a h {struct h} := _).
+unfold finaltr in h.
+unfold fintr.
+inversion h; subst.
+- apply Fin_Tnil.
+- apply Fin_Tcons.
+  now apply (IH _ a).
+Qed.
+
+Lemma finitetr_finaltr {A B} : forall (tr : trace A B) (h : fintr tr),
+ finaltr tr (final h).
+Proof.
+refine (fix IH tr h {struct h} := _).
+unfold fintr in h.
+unfold finaltr, final, final'.
+inversion h; subst.
+- dependent inversion h; auto.
+  congruence.
+- dependent inversion h; auto.
+  rewrite <- H2 in H.
+  inversion H; subst.
+  apply Final_Tcons.
+  apply IH.
+Qed.
+
+Lemma final_tr_hd_app_trace {A B} : forall (tr0 : trace A B) a,
+ finaltr tr0 a -> forall tr1, tr_hd tr1 = a ->
+ tr_hd (tr0 +++ tr1) = tr_hd tr0.
+Proof.
+refine (fix IH tr a h {struct h} := _).
+inversion h; subst.
+- admit.
+- admit.
+Admitted.
+
+(** * Basic predicates *)
+
+Definition tr_tt' {A B} : trace' A B -> Prop :=
+ fun _ => True.
+
+Definition tr_tt {A B} : trace A B -> Prop :=
+ fun tr => tr_tt' (observe tr).
+
+#[export] Instance Proper_tr_tt {A B} :
+ Proper (eqtr ==> flip impl) (@tr_tt A B).
+Proof. now cbn. Qed.
+
+Definition tr_ff' {A B} : trace' A B -> Prop :=
+ fun _ => False.
+
+Definition tr_ff {A B} : trace A B -> Prop :=
+ fun tr => tr_ff' (observe tr).
+
+#[export] Instance Proper_tr_ff {A B} :
+ Proper (eqtr ==> flip impl) (@tr_ff A B).
+Proof. now cbn. Qed.
+
+Definition tr_singleton' {A B} (u : A -> Prop) : trace' A B -> Prop :=
+ fun tr => exists a, u a /\ eqtr (go tr) (Tnil a).
