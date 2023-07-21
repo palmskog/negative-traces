@@ -55,11 +55,14 @@ Section Operations.
 
 Context {A B : Type}.
 
-Definition tr_hd (tr : trace A B) : A :=
-match observe tr with
+Definition tr_hd' (tr : trace' A B) : A :=
+match tr with
 | TnilF a => a
 | TconsF a b tr0 => a
 end.
+
+Definition tr_hd : trace A B -> A :=
+fun tr => tr_hd' (observe tr).
 
 Definition tr_app' (tr' : trace A B) : trace' A B -> trace A B :=
  cofix _tr_app (tr : trace' A B) :=
@@ -228,36 +231,15 @@ Qed.
 
 Import TraceNotations.
 
-Lemma eqtr_hd {A B : Type} (tr1 tr2 : trace A B) :
- eqtr tr1 tr2 -> tr_hd tr1 = tr_hd tr2.
+Lemma tr_hd_unfold {A B} :
+ forall (tr : trace A B),
+  tr_hd tr = (match observe tr with
+              | TnilF a => a
+              | TconsF a b tr' => a
+              end).
 Proof.
-unfold eqtr, tr_hd; intros Heq.
-apply (gfp_fp feqtr) in Heq.
-cbn in Heq.
-destruct (observe tr1) eqn:?;
- destruct (observe tr2) eqn:?.
-- inversion Heq; subst; reflexivity.
-- inversion Heq.
-- inversion Heq.
-- inversion Heq; subst; reflexivity.
-Qed.
-
-Lemma observe_TnilF_tr_app {A B} : forall a (tr tr' : trace A B),
- observe tr = TnilF a ->
- observe (tr +++ tr') = observe tr'.
-Proof.
-intros.
-cbv in *.
-rewrite H; reflexivity.
-Qed.
-
-Lemma observe_TconsF_tr_app {A B} : forall a b tr0 (tr tr' : trace A B),
- observe tr = TconsF a b tr0 ->
- observe (tr +++ tr') = observe (Tcons a b (tr0 +++ tr')) .
-Proof.
-intros.
-cbv in *.
-rewrite H; reflexivity.
+intros tr; unfold tr_hd.
+destruct (observe tr) eqn:?; reflexivity.
 Qed.
 
 Lemma tr_app_unfold {A B} :
@@ -271,10 +253,26 @@ Proof.
   intros; now step.
 Qed.
 
+Lemma eqtr_hd {A B : Type} (tr1 tr2 : trace A B) :
+ eqtr tr1 tr2 -> tr_hd tr1 = tr_hd tr2.
+Proof.
+unfold eqtr; intros Heq.
+apply (gfp_fp feqtr) in Heq.
+cbn in Heq.
+rewrite 2 tr_hd_unfold.
+destruct (observe tr1) eqn:?;
+ destruct (observe tr2) eqn:?.
+- inversion Heq; subst; reflexivity.
+- inversion Heq.
+- inversion Heq.
+- inversion Heq; subst; reflexivity.
+Qed.
+
 Lemma eqtr_Tnil_tr_app {A B} : forall a (tr : trace A B), eqtr (Tnil a +++ tr) tr.
 Proof.
-intros a tr; unfold eqtr.
-step; reflexivity.
+intros a tr.
+rewrite tr_app_unfold.
+reflexivity.
 Qed.
 
 Lemma eqtr_left_Tnil_tr_app {A B} :
@@ -283,9 +281,8 @@ forall a (tr1 tr2 : trace A B),
  eqtr tr1 tr2.
 Proof.
 intros a tr1 tr2.
-rewrite tr_app_unfold.
-rewrite tr_app_unfold.
-cbn; auto.
+rewrite 2 tr_app_unfold.
+auto.
 Qed.
 
 Lemma eqtr_left_tr_app_Tnil {A B} :
@@ -294,16 +291,15 @@ forall a (tr1 tr2 : trace A B),
  eqtr (Tnil a +++ tr1) (Tnil a +++ tr2).
 Proof.
 intros a tr1 tr2.
-rewrite tr_app_unfold.
-rewrite tr_app_unfold.
-cbn; auto.
+rewrite 2 tr_app_unfold.
+auto.
 Qed.
 
 Lemma eqtr_Tcons_tr_app {A B} : forall a b (tr tr' : trace A B),
  eqtr (Tcons a b tr +++ tr') (Tcons a b (tr +++ tr')).
 Proof.
 intros a b tr tr'.
-step.
+rewrite tr_app_unfold.
 reflexivity.
 Qed.
 
@@ -417,7 +413,6 @@ Qed.
  Proper (eqtr ==> flip impl) (@inftr A B).
 Proof. typeclasses eauto. Qed.
 
-
 #[export] Instance Proper_iff_inftr {A B} :
  Proper (eqtr ==> iff) (@inftr A B).
 Proof.
@@ -494,9 +489,8 @@ Proof.
   intros tr Hinf tr'.
   apply (gfp_fp finftr) in Hinf.
   inversion Hinf.
-  do 3 red; unfold observe; cbn.
+  rewrite tr_app_unfold.
   rewrite <- H1.
-  cbn.
   constructor.
   apply H.
   apply (gfp_fp finftr) in PRED.
@@ -597,7 +591,7 @@ Inductive finaltr {A B} : trace A B -> A -> Prop :=
    finaltr (Tcons a b tr) a'.
 
 Fail Fixpoint final {A B} (tr : trace A B) (h : fintr tr) {struct h} : A :=
-match observe tr as tr' return (_ -> A) with
+match observe tr as tr' return (fintr (go tr') -> A) with
 | TnilF a => fun _ => a
-| TconsF a b tr => fun h => final (invert_fintr_delay h)
+| TconsF a b tr => fun h0 => final (invert_fintr_delay h0)
 end h.
