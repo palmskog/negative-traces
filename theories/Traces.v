@@ -9,11 +9,7 @@ Import CoindNotations.
 
 Lemma gfp_leq_Chain {X} {L : CompleteLattice X} (b : mon X) (R : Chain b) :
   gfp b <= b ` R.
-Proof.
-  rewrite <- (gfp_fp b).
-  apply b.
-  eapply gfp_chain.
-Qed.
+Proof. apply (gfp_chain (chain_b R)). Qed.
 
 (** ** Basic trace definitions *)
 
