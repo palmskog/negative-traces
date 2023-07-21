@@ -7,9 +7,9 @@ From Coinduction Require Import all.
 
 Import CoindNotations.
 
-Lemma gfp_leq_Chain {X} {L : CompleteLattice X} (b : mon X) (R : Chain b) :
-  gfp b <= b ` R.
-Proof. apply (gfp_chain (chain_b R)). Qed.
+Lemma gfp_bchain {X} {L : CompleteLattice X} (b : mon X) (x : Chain b) :
+  gfp b <= b ` x.
+Proof. apply (gfp_chain (chain_b x)). Qed.
 
 (** ** Basic trace definitions *)
 
@@ -473,7 +473,7 @@ Proof.
   intros tr'.
   rewrite tr_app_unfold.
   destruct (observe tr') eqn:?.
-  - now eapply (gfp_leq_Chain finftr).
+  - now apply (gfp_bchain finftr).
   - constructor; apply H.
 Qed.
 
@@ -495,65 +495,52 @@ Qed.
 
 (** ** Finite trace definitions *)
 
-Inductive fintr {A B} : trace A B -> Prop :=
-| Fin_Tnil : forall a tr,
-   observe tr = TnilF a ->
-   fintr tr
-| Fin_Tcons : forall a b tr tr',
-   observe tr = TconsF a b tr' ->
-   fintr tr' ->
-   fintr tr.
-#[export] Hint Constructors fintr : core.
+Inductive fintr' {A B} : trace' A B -> Prop :=
+| Fin_Tnil : forall a,
+   fintr' (TnilF a)
+| Fin_Tcons : forall a b tr,
+   fintr' tr ->
+   fintr' (TconsF a b (go tr)).
+#[export] Hint Constructors fintr' : core.
+Arguments Fin_Tnil {A B} a.
+
+Definition fintr {A B} : trace A B -> Prop :=
+ fun tr => fintr' (observe tr).
 
 Lemma fintr_Tnil {A B} : forall (a : A),
  @fintr A B (Tnil a).
-Proof. intros; econstructor; eauto. Qed.
+Proof. intros a; constructor. Qed.
 
-#[export] Instance Proper_fintr {A B} :
- Proper (eqtr ==> flip impl) (@fintr A B).
-Proof.
-unfold Proper, respectful, flip, impl; cbn.
-intros x y Heq Hy.
-apply (gfp_fp feqtr) in Heq.
-revert Hy x Heq.
-induction 1.
-- intros x Heq.
-  inversion Heq; subst; [|congruence].
-  symmetry in H1.
-  revert H1.
-  apply Fin_Tnil.
-- intros x Heq.
-  inversion Heq; subst; [congruence|].
-  rewrite <- H2 in H.
-  inversion H; subst; clear H.
-  symmetry in H1.
-  apply (Fin_Tcons H1).
-  apply IHHy.
-  now apply (gfp_fp feqtr) in REL.
-Qed.
+Lemma invert_finiteT_delay {A B : Type} (a : A) (b : B) (tr : trace A B)
+ (h : fintr' (TconsF a b tr)) : fintr' (observe tr).
+Proof. now inversion h. Defined.
+
+Definition final' {A B : Type} : forall (tr: trace' A B), fintr' tr -> A :=
+  fix F (tr : trace' A B) (h : fintr' tr) {struct h} : A :=
+    match tr as tr' return (fintr' tr' -> A) with
+    | TnilF a => fun _ => a
+    | TconsF a b tr0 => fun h => F (observe tr0) (invert_finiteT_delay h)
+    end h.
+
+Definition final {A B} (tr : trace A B) (Fin : fintr tr) : A :=
+ final' Fin.
 
 (** ** Finite trace properties *)
-
-Lemma invert_fintr_delay {A B} : forall a b (tr : trace A B) (h : fintr (Tcons a b tr)), fintr tr.
-Proof.
-intros a b tr h; inversion h; cbn in H.
-- congruence.
-- now inversion H; subst.
-Qed.
 
 Lemma fintr_inftr_not {A B} : forall(tr : trace A B),
  fintr tr -> inftr tr -> False.
 Proof.
-intros tr; induction 1; intros Hinf.
-- apply (gfp_fp finftr) in Hinf.
+unfold fintr,inftr.
+intros tr Hfin Hinf.
+apply (gfp_fp finftr) in Hinf.
+cbn in Hinf.
+unfold inftrb_ in Hinf.
+revert Hfin Hinf.
+induction 1; intros Hinf.
+- inversion Hinf.
+- apply IHHfin; clear IHHfin.
   inversion Hinf; subst.
-  congruence.
-- apply (gfp_fp finftr) in Hinf.
-  inversion Hinf; subst.
-  rewrite H in H2.
-  inversion H2; subst.
-  apply IHfintr.
-  now apply (gfp_fp finftr).
+  now apply (gfp_fp finftr) in PRED.
 Qed.
 
 Lemma not_fintr_inftr {A B} : forall(tr : trace A B),
@@ -564,7 +551,8 @@ coinduction R H.
 intros tr Hfin.
 destruct (observe tr) eqn:?.
 - contradict Hfin.
-  revert Heqt.
+  unfold fintr.
+  rewrite Heqt.
   apply Fin_Tnil.
 - cbn.
   unfold inftrb_.
@@ -572,10 +560,56 @@ destruct (observe tr) eqn:?.
   constructor.
   apply H.
   intros Hf.
-  contradict Hfin.
-  revert Heqt Hf.
-  apply Fin_Tcons.
+  contradict Hfin.  
+  Fail apply Fin_Tcons.
+Admitted.
+
+(*
+#[export] Instance Proper_fintr {A B} :
+ Proper (eqtr ==> flip impl) (@fintr A B).
+Proof.
+unfold Proper, respectful, flip, impl; cbn.
+intros x y Heq Hy.
+unfold fintr in Hy.
+symmetry in Heq.
+rewrite eqtr_eta in Heq.
+revert x Heq.
+induction Hy.
+- intros x Heq.
+  apply (gfp_fp feqtr) in Heq.
+  inversion Heq.
+  unfold fintr.
+  rewrite <- H.
+  constructor.
+- intros x Heq.
+  apply (gfp_fp feqtr) in Heq.
+  inversion Heq; subst.
+  pose proof (eqtr_eta tr2).
+  assert (eqtr (go tr) (go (observe tr2))). 
+  (transitivity tr2); assumption.
+  pose proof (IHHy _ H1).
+  unfold fintr.
+  rewrite <- H.
+  unfold fintr in H2.
+  cbn in H2.
+  pose proof (@Fin_Tcons _ _ a b _ H2).
+  cbn in H3.
+  
+
+  apply (gfp_fp feqtr) in REL.
+  rewrite <- REL.
+  assert (go tr = tr2).
+  Check go 
+  eapply Fin_Tcons.
+
+  rewrite <- H2 in H.
+  inversion H; subst; clear H.
+  symmetry in H1.
+  apply (Fin_Tcons H1).
+  apply IHHy.
+  now apply (gfp_fp feqtr) in REL.
 Qed.
+*)
 
 (** * Final element properties *)
 
