@@ -499,33 +499,49 @@ Inductive fintr' {A B} : trace' A B -> Prop :=
 | Fin_Tnil : forall a,
    fintr' (TnilF a)
 | Fin_Tcons : forall a b tr,
-   fintr' tr ->
-   fintr' (TconsF a b (go tr)).
+   fintr' (observe tr) ->
+   fintr' (TconsF a b tr).
 #[export] Hint Constructors fintr' : core.
 Arguments Fin_Tnil {A B} a.
 
 Definition fintr {A B} : trace A B -> Prop :=
  fun tr => fintr' (observe tr).
 
+(** ** Finite trace properties *)
+
 Lemma fintr_Tnil {A B} : forall (a : A),
  @fintr A B (Tnil a).
 Proof. intros a; constructor. Qed.
 
+#[export] Instance Proper_fintr {A B} :
+ Proper (eqtr ==> flip impl) (@fintr A B).
+Proof.
+unfold Proper, respectful, flip, impl; cbn.
+intros x y Heq Hy.
+unfold fintr in Hy.
+symmetry in Heq.
+rewrite eqtr_eta in Heq.
+revert x Heq.
+induction Hy.
+- intros x Heq.
+  apply (gfp_fp feqtr) in Heq.
+  inversion Heq.
+  unfold fintr.
+  rewrite <- H.
+  constructor.
+- intros x Heq.
+  apply (gfp_fp feqtr) in Heq.
+  inversion Heq; subst.
+  unfold fintr.
+  rewrite <- H.
+  apply Fin_Tcons.
+  apply IHHy.
+  now rewrite <- eqtr_eta.
+Qed.
+
 Lemma invert_finiteT_delay {A B : Type} (a : A) (b : B) (tr : trace A B)
  (h : fintr' (TconsF a b tr)) : fintr' (observe tr).
 Proof. now inversion h. Defined.
-
-Definition final' {A B : Type} : forall (tr: trace' A B), fintr' tr -> A :=
-  fix F (tr : trace' A B) (h : fintr' tr) {struct h} : A :=
-    match tr as tr' return (fintr' tr' -> A) with
-    | TnilF a => fun _ => a
-    | TconsF a b tr0 => fun h => F (observe tr0) (invert_finiteT_delay h)
-    end h.
-
-Definition final {A B} (tr : trace A B) (Fin : fintr tr) : A :=
- final' Fin.
-
-(** ** Finite trace properties *)
 
 Lemma fintr_inftr_not {A B} : forall(tr : trace A B),
  fintr tr -> inftr tr -> False.
@@ -561,57 +577,22 @@ destruct (observe tr) eqn:?.
   apply H.
   intros Hf.
   contradict Hfin.  
-  Fail apply Fin_Tcons.
-Admitted.
-
-(*
-#[export] Instance Proper_fintr {A B} :
- Proper (eqtr ==> flip impl) (@fintr A B).
-Proof.
-unfold Proper, respectful, flip, impl; cbn.
-intros x y Heq Hy.
-unfold fintr in Hy.
-symmetry in Heq.
-rewrite eqtr_eta in Heq.
-revert x Heq.
-induction Hy.
-- intros x Heq.
-  apply (gfp_fp feqtr) in Heq.
-  inversion Heq.
   unfold fintr.
-  rewrite <- H.
-  constructor.
-- intros x Heq.
-  apply (gfp_fp feqtr) in Heq.
-  inversion Heq; subst.
-  pose proof (eqtr_eta tr2).
-  assert (eqtr (go tr) (go (observe tr2))). 
-  (transitivity tr2); assumption.
-  pose proof (IHHy _ H1).
-  unfold fintr.
-  rewrite <- H.
-  unfold fintr in H2.
-  cbn in H2.
-  pose proof (@Fin_Tcons _ _ a b _ H2).
-  cbn in H3.
-  
-
-  apply (gfp_fp feqtr) in REL.
-  rewrite <- REL.
-  assert (go tr = tr2).
-  Check go 
-  eapply Fin_Tcons.
-
-  rewrite <- H2 in H.
-  inversion H; subst; clear H.
-  symmetry in H1.
-  apply (Fin_Tcons H1).
-  apply IHHy.
-  now apply (gfp_fp feqtr) in REL.
+  rewrite Heqt.
+  now apply Fin_Tcons.
 Qed.
-*)
 
 (** * Final element properties *)
+
+Definition final' {A B : Type} : forall (tr: trace' A B), fintr' tr -> A :=
+  fix F (tr : trace' A B) (h : fintr' tr) {struct h} : A :=
+    match tr as tr' return (fintr' tr' -> A) with
+    | TnilF a => fun _ => a
+    | TconsF a b tr0 => fun h => F (observe tr0) (invert_finiteT_delay h)
+    end h.
+
+Definition final {A B} (tr : trace A B) (Fin : fintr tr) : A :=
+ final' Fin.
 
 Inductive finaltr {A B} : trace A B -> A -> Prop :=
 | Final_Tnil : forall a,
@@ -619,9 +600,3 @@ Inductive finaltr {A B} : trace A B -> A -> Prop :=
 | Final_Tcons : forall a b a' tr,
    finaltr tr a' ->
    finaltr (Tcons a b tr) a'.
-
-Fail Fixpoint final {A B} (tr : trace A B) (h : fintr tr) {struct h} : A :=
-match observe tr as tr' return (fintr (go tr') -> A) with
-| TnilF a => fun _ => a
-| TconsF a b tr => fun h0 => final (invert_fintr_delay h0)
-end h.
