@@ -684,6 +684,8 @@ apply (gfp_fp feqtr) in Heq'.
 inversion Heq'.
 Qed.
 
+(** * Follows relation *)
+
 Section Followstr.
 
 Context {A B : Type}.
@@ -699,7 +701,7 @@ Hint Constructors followstrb: core.
 Definition followstrb_ p ftr : trace A B -> trace A B -> Prop :=
  fun tr1 tr2 => followstrb p ftr (observe tr1) (observe tr2).
 
-Program Definition ffollowstrb (p : trace A B -> Prop) : mon (trace A B -> trace A B -> Prop) :=
+Program Definition ffollowstrb p : mon (trace A B -> trace A B -> Prop) :=
  {| body := followstrb_ p |}.
 Next Obligation.
   unfold pointwise_relation, Basics.impl, followstrb_.
@@ -714,11 +716,9 @@ Definition followstr {A B} p := (gfp (@ffollowstrb A B p)).
 #[export] Hint Constructors followstrb: core.
 Arguments followstrb_ _ _ _/.
 
-#[export] Instance Proper_followstr {A B} p :
-  Proper (eqtr ==> flip impl) p ->
+#[export] Instance Proper_followstr {A B} p (Hp : Proper (eqtr ==> flip impl) p) :
   Proper (eqtr ==> eqtr ==> flip impl) (@followstr A B p).
 Proof.
-intros Hp.
 unfold Proper, respectful, flip, impl; cbn.
 unfold followstr at 2.
 coinduction R H.
