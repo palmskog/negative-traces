@@ -640,9 +640,7 @@ Lemma final_tr_hd_app_trace {A B} : forall (tr0 : trace A B) a,
 Proof.
 refine (fix IH tr a h {struct h} := _).
 inversion h; subst.
-- admit.
-- admit.
-Admitted.
+Abort.
 
 (** * Basic predicates *)
 
@@ -666,5 +664,91 @@ Definition tr_ff {A B} : trace A B -> Prop :=
  Proper (eqtr ==> flip impl) (@tr_ff A B).
 Proof. now cbn. Qed.
 
-Definition tr_singleton' {A B} (u : A -> Prop) : trace' A B -> Prop :=
- fun tr => exists a, u a /\ eqtr (go tr) (Tnil a).
+Definition tr_singleton' {A B} (u : A -> Prop) (tr : trace' A B) : Prop :=
+ exists a, u a /\ eqtr (go tr) (Tnil a).
+
+Definition tr_singleton {A B} (u : A -> Prop) : trace A B -> Prop :=
+ fun tr => tr_singleton' u (observe tr).
+
+#[export] Instance Proper_tr_singleton {A B} (u : A -> Prop) :
+ Proper (eqtr ==> flip impl) (@tr_singleton A B u).
+Proof. 
+unfold Proper, respectful, flip, impl; cbn.
+unfold tr_singleton, eqtr.
+intros x y Heq.
+apply (gfp_fp feqtr) in Heq.
+inversion Heq; auto.
+unfold tr_singleton'.
+intros [a0 [Hu Heq']].
+apply (gfp_fp feqtr) in Heq'.
+inversion Heq'.
+Qed.
+
+Section Followstr.
+
+Context {A B : Type}.
+
+Variant followstrb (p : trace A B -> Prop) (ftr : trace A B -> trace A B -> Prop) :
+ trace' A B -> trace' A B -> Prop :=
+| Follows_Tnil : forall a b tr, p tr ->
+   followstrb p ftr (TnilF a) (TconsF a b tr)
+| Follows_Tcons : forall a b tr tr' (REL : ftr tr tr'),
+   followstrb p ftr (TconsF a b tr) (TconsF a b tr').
+Hint Constructors followstrb: core.
+
+Definition followstrb_ p ftr : trace A B -> trace A B -> Prop :=
+ fun tr1 tr2 => followstrb p ftr (observe tr1) (observe tr2).
+
+Program Definition ffollowstrb (p : trace A B -> Prop) : mon (trace A B -> trace A B -> Prop) :=
+ {| body := followstrb_ p |}.
+Next Obligation.
+  unfold pointwise_relation, Basics.impl, followstrb_.
+  intros PX PY PXY tr tr' FL.
+  inversion_clear FL; auto.
+Qed.
+
+End Followstr.
+
+Definition followstr {A B} p := (gfp (@ffollowstrb A B p)).
+#[export] Hint Unfold followstr: core.
+#[export] Hint Constructors followstrb: core.
+Arguments followstrb_ _ _ _/.
+
+#[export] Instance Proper_followstr {A B} p :
+  Proper (eqtr ==> flip impl) p ->
+  Proper (eqtr ==> eqtr ==> flip impl) (@followstr A B p).
+Proof.
+intros Hp.
+unfold Proper, respectful, flip, impl; cbn.
+unfold followstr at 2.
+coinduction R H.
+unfold followstr; intros x y Heq x' y' Heq' Hf.
+apply (gfp_fp (ffollowstrb p)) in Hf.
+cbn in Hf.
+unfold eqtr in Heq.
+apply (gfp_fp feqtr) in Heq.
+apply (gfp_fp feqtr) in Heq'.
+cbn in Heq, Heq'.
+inversion Heq.
+- rewrite <- H2 in Hf.
+  inversion Hf; subst.
+  rewrite <- H3 in Heq'.
+  symmetry in Heq'.
+  inversion Heq'; subst.
+  cbn.
+  rewrite <- H1, <- H8.
+  constructor.
+  symmetry in REL.
+  now apply (Hp _ _ REL).
+- rewrite <- H2 in Hf.
+  inversion Hf; subst.
+  rewrite <- H6 in Heq'.
+  symmetry in Heq'.
+  inversion Heq'; subst.
+  cbn.
+  rewrite <- H1, <- H7.
+  constructor.
+  apply (H tr1 tr2 REL tr3 tr').  
+  * now symmetry.
+  * apply REL0.
+Qed.
