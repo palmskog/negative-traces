@@ -51,96 +51,96 @@ Section Operations.
 
 Context {A B : Type}.
 
-Definition tr_hd' (tr : trace' A B) : A :=
+Definition hd_tr' (tr : trace' A B) : A :=
 match tr with
 | TnilF a => a
 | TconsF a b tr0 => a
 end.
 
-Definition tr_hd : trace A B -> A :=
-fun tr => tr_hd' (observe tr).
+Definition hd_tr : trace A B -> A :=
+fun tr => hd_tr' (observe tr).
 
-Definition tr_app' (tr' : trace A B) : trace' A B -> trace A B :=
- cofix _tr_app (tr : trace' A B) :=
+Definition app_tr' (tr' : trace A B) : trace' A B -> trace A B :=
+ cofix app_tr'_ (tr : trace' A B) :=
  match tr with
   | TnilF a => tr'
-  | TconsF a b tr0 => Tcons a b (_tr_app (observe tr0) )
+  | TconsF a b tr0 => Tcons a b (app_tr'_ (observe tr0) )
   end.
 
-Definition tr_app : trace A B -> trace A B -> trace A B :=
- fun tr tr' => tr_app' tr' (observe tr).
+Definition app_tr : trace A B -> trace A B -> trace A B :=
+ fun tr tr' => app_tr' tr' (observe tr).
 
 End Operations.
 
 Module TraceNotations.
-Infix "+++" := tr_app (at level 60, right associativity) : trace_scope.
+Infix "+++" := app_tr (at level 60, right associativity) : trace_scope.
 End TraceNotations.
 
 (** ** Trace equality as a bisimulation *)
 
-Section Eqtr.
+Section Eq.
 
 Context {A B : Type}.
 
-Variant eqtrb (eq : trace A B -> trace A B -> Prop) :
+Variant eq_tr'_b (eq : trace A B -> trace A B -> Prop) :
  trace' A B -> trace' A B -> Prop :=
-| Eq_Tnil a : eqtrb eq (TnilF a) (TnilF a)
+| Eq_Tnil a : eq_tr'_b eq (TnilF a) (TnilF a)
 | Eq_Tcons a b tr1 tr2 (REL : eq tr1 tr2) :
-   eqtrb eq (TconsF a b tr1) (TconsF a b tr2).
-Hint Constructors eqtrb: core.
+   eq_tr'_b eq (TconsF a b tr1) (TconsF a b tr2).
 
-Definition eqtrb_ eq : trace A B -> trace A B -> Prop :=
- fun tr1 tr2 => eqtrb eq (observe tr1) (observe tr2).
+Hint Constructors eq_tr'_b : core.
 
-Program Definition feqtr: mon (trace A B -> trace A B -> Prop) := {| body := eqtrb_ |}.
+Definition eq_tr_b eq : trace A B -> trace A B -> Prop :=
+ fun tr1 tr2 => eq_tr'_b eq (observe tr1) (observe tr2).
+
+Program Definition eq_tr_f : mon (trace A B -> trace A B -> Prop) :=
+ {| body := eq_tr_b |}.
 Next Obligation.
-  unfold pointwise_relation, Basics.impl, eqtrb_.
+  unfold pointwise_relation, Basics.impl, eq_tr_b.
   intros ?? INC ?? EQ. inversion_clear EQ; auto.
 Qed.
 
-End Eqtr.
+End Eq.
 
-Definition eqtr {A B} := (gfp (@feqtr A B)).
-#[export] Hint Unfold eqtr: core.
-#[export] Hint Constructors eqtrb: core.
-Arguments eqtrb_ _ _/.
+Definition eq_tr {A B} := (gfp (@eq_tr_f A B)).
 
-Ltac fold_eqtr :=
+#[export] Hint Unfold eq_tr : core.
+#[export] Hint Constructors eq_tr'_b : core.
+Arguments eq_tr_b _ _/.
+
+Ltac fold_eq_tr :=
   repeat
     match goal with
-    | h: context[@feqtr ?A ?B] |- _ => fold (@eqtr A B) in h
-    | |- context[@feqtr ?A ?B] => fold (@eqtr A B)
+    | h: context[@eq_tr_f ?A ?B] |- _ => fold (@eq_tr A B) in h
+    | |- context[@eq_tr_f ?A ?B] => fold (@eq_tr A B)
     end.
 
-#[export] Instance Reflexive_eqtrb {A B : Type} {R} {Hr: Reflexive R} :
- Reflexive (@eqtrb A B R).
+#[export] Instance Reflexive_eq_tr'_b {A B} {R} {Hr: Reflexive R} :
+ Reflexive (@eq_tr'_b A B R).
 Proof. now intros [a|a b tr]; constructor. Qed.
 
-#[export] Instance Reflexive_feqtr {A B : Type} : forall {R: Chain (@feqtr A B)}, Reflexive `R.
+#[export] Instance Reflexive_eq_tr_f {A B} :
+ forall {R: Chain (@eq_tr_f A B)}, Reflexive `R.
 Proof. apply Reflexive_chain. now cbn. Qed.
 
-#[export] Instance Symmetric_eqtrb {A B : Type} {R} {Hr: Symmetric R} :
- Symmetric (@eqtrb A B R).
+#[export] Instance Symmetric_eq_tr'_b {A B} {R} {Hr: Symmetric R} :
+ Symmetric (@eq_tr'_b A B R).
 Proof.
-intros [a|a b tr]; intros [a'|a' b' tr'] Heq.
-- inversion Heq; subst.
-  constructor.
-- inversion Heq.
-- inversion Heq.
-- inversion Heq; subst.
-  constructor; now symmetry.
+intros [a|a b tr]; intros [a'|a' b' tr'] Heq; try inversion Heq.
+- constructor.
+- constructor; now symmetry.
 Qed.
 
-#[export] Instance Symmetric_feqtr {A B : Type} : forall {R: Chain (@feqtr A B)}, Symmetric `R.
+#[export] Instance Symmetric_eq_tr_f {A B} :
+ forall {R: Chain (@eq_tr_f A B)}, Symmetric `R.
 Proof.
-apply Symmetric_chain. 
-intros R HR.
-intros x y xy.
-now apply Symmetric_eqtrb.
+apply Symmetric_chain.
+intros R HR x y xy.
+now apply Symmetric_eq_tr'_b.
 Qed.
 
-#[export] Instance Transitive_eqtrb {A B : Type} {R} {Hr: Transitive R} :
- Transitive (@eqtrb A B R).
+#[export] Instance Transitive_eq_tr'_b {A B} {R} {Hr: Transitive R} :
+ Transitive (@eq_tr'_b A B R).
 Proof.
 intros [xa|xa xb xtr]; intros [ya|ya yb ytr]; intros [za|za zb ztr] Heqx Heqy.
 - inversion Heqx; subst.
@@ -156,50 +156,51 @@ intros [xa|xa xb xtr]; intros [ya|ya yb ytr]; intros [za|za zb ztr] Heqx Heqy.
   constructor; revert REL REL0; apply Hr.
 Qed.
 
-#[export] Instance Transitive_feqtr {A B : Type} : forall {R: Chain (@feqtr A B)}, Transitive `R.
+#[export] Instance Transitive_eq_tr_f {A B : Type} :
+ forall {R: Chain (@eq_tr_f A B)}, Transitive `R.
 Proof.
 apply Transitive_chain. 
 intros R HR.
 intros x y z.
-now apply Transitive_eqtrb.
+now apply Transitive_eq_tr'_b.
 Qed.
 
-#[export] Instance Equivalence_eqtr {A B}: Equivalence (@eqtr A B).
+#[export] Instance Equivalence_eq_tr {A B}: Equivalence (@eq_tr A B).
 Proof. split; typeclasses eauto. Qed.
 
-#[export] Instance Proper_eqtr {A B} :
-  Proper (eqtr ==> eqtr ==> flip impl) (@eqtr A B).
+#[export] Instance Proper_eq_tr {A B} :
+ Proper (eq_tr ==> eq_tr ==> flip impl) (@eq_tr A B).
 Proof.
 unfold Proper, respectful, flip, impl; cbn.
-unfold eqtr; intros.
+unfold eq_tr; intros.
 transitivity y; auto.
 symmetry in H0.
 transitivity y0; auto.
 Qed.
 
-Lemma eqtr_eta_ {A B : Type} (tr : trace A B) : eqtr tr (go (_observe tr)).
+Lemma eq_tr_eta_ {A B} (tr : trace A B) : eq_tr tr (go (_observe tr)).
 Proof. now step. Qed.
 
-Lemma eqtr_eta {A B : Type} (tr : trace A B) : eqtr tr (go (observe tr)).
+Lemma eq_tr_eta {A B} (tr : trace A B) : eq_tr tr (go (observe tr)).
 Proof. now step. Qed.
 
-Lemma eqtr_Tnil_inv {A B : Type} (a1 a2 : A) :
- @eqtr A B (Tnil a1) (Tnil a2) ->
+Lemma eq_tr_Tnil_inv {A B} (a1 a2 : A) :
+ @eq_tr A B (Tnil a1) (Tnil a2) ->
  a1 = a2.
 Proof.
-unfold eqtr; intros Heq.
-apply (gfp_fp feqtr) in Heq.
+unfold eq_tr; intros Heq.
+apply (gfp_fp eq_tr_f) in Heq.
 cbn in Heq.
 inversion Heq; subst.
 reflexivity.
 Qed.
 
-Lemma eqtr_Tcons_inv {A B : Type} a1 a2 b1 b2 (tr1 tr2 : trace A B) :
- eqtr (Tcons a1 b1 tr1) (Tcons a2 b2 tr2) ->
- a1 = a2 /\ b1 = b2 /\ eqtr tr1 tr2.
+Lemma eqtr_Tcons_inv {A B} a1 a2 b1 b2 (tr1 tr2 : trace A B) :
+ eq_tr (Tcons a1 b1 tr1) (Tcons a2 b2 tr2) ->
+ a1 = a2 /\ b1 = b2 /\ eq_tr tr1 tr2.
 Proof.
-unfold eqtr; intros Heq.
-apply (gfp_fp feqtr) in Heq.
+unfold eq_tr; intros Heq.
+apply (gfp_fp eq_tr_f) in Heq.
 cbn in Heq.
 inversion Heq; subst.
 tauto.
@@ -210,50 +211,60 @@ Qed.
 CoFixpoint zeros : trace nat unit := Tcons 0 tt zeros.
 Definition zeros' : trace nat unit := Tcons 0 tt (Tcons 0 tt zeros).
 
-Example zeros_zeros_eqtr : eqtr zeros zeros.
+Example zeros_zeros_eq_tr : eq_tr zeros zeros.
 Proof. reflexivity. Qed.
 
-Example zeros_zeros_one_eqtr : eqtr zeros (Tcons 0 tt zeros).
-Proof. unfold eqtr; step; cbn; reflexivity. Qed.
+Example zeros_zeros_one_eq_tr : eq_tr zeros (Tcons 0 tt zeros).
+Proof. unfold eq_tr; step; cbn; reflexivity. Qed.
 
-Example zeros_zeros'_eqtr : eqtr zeros zeros'.
+Example zeros_zeros'_eqtr : eq_tr zeros zeros'.
 Proof.
-unfold eqtr, zeros'.
+unfold eq_tr, zeros'.
 step; cbn; constructor; cbn.
-apply zeros_zeros_one_eqtr.
+apply zeros_zeros_one_eq_tr.
 Qed.
 
 (** ** Properties of operations *)
 
 Import TraceNotations.
 
-Lemma tr_hd_unfold {A B} :
+Lemma observe_TnilF_app_tr {A B} : forall a (tr tr' : trace A B),
+ observe tr = TnilF a ->
+ observe (tr +++ tr') = observe tr'.
+Proof. cbv; intros; rewrite H; reflexivity. Qed.
+
+Lemma observe_TconsF_app_tr {A B} : forall a b tr0 (tr tr' : trace A B),
+ observe tr = TconsF a b tr0 ->
+ observe (tr +++ tr') = observe (Tcons a b (tr0 +++ tr')) .
+Proof. cbv; intros; rewrite H; reflexivity. Qed.
+
+Lemma hd_tr_unfold {A B} :
  forall (tr : trace A B),
-  tr_hd tr = (match observe tr with
+  hd_tr tr = (match observe tr with
               | TnilF a => a
               | TconsF a b tr' => a
               end).
 Proof.
-intros tr; unfold tr_hd.
+intros tr; unfold hd_tr.
 destruct (observe tr) eqn:?; reflexivity.
 Qed.
 
-Lemma tr_app_unfold {A B} :
+Lemma app_tr_unfold {A B} :
   forall (tr tr' : trace A B),
-    eqtr (tr +++ tr')
+    eq_tr (tr +++ tr')
       (match observe tr with
        | TnilF a => tr'
        | TconsF a b tr0 => Tcons a b (tr0 +++ tr')
        end).
 Proof. intros; now step. Qed.
 
-Lemma eqtr_hd {A B : Type} (tr1 tr2 : trace A B) :
- eqtr tr1 tr2 -> tr_hd tr1 = tr_hd tr2.
+Lemma eq_tr_hd {A B} (tr1 tr2 : trace A B) :
+ eq_tr tr1 tr2 -> hd_tr tr1 = hd_tr tr2.
 Proof.
-unfold eqtr; intros Heq.
-apply (gfp_fp feqtr) in Heq.
+unfold eq_tr; intros Heq.
+apply (gfp_fp eq_tr_f) in Heq.
 cbn in Heq.
-rewrite 2 tr_hd_unfold.
+rewrite 2 hd_tr_unfold.
 destruct (observe tr1) eqn:?;
  destruct (observe tr2) eqn:?.
 - inversion Heq; subst; reflexivity.
@@ -262,88 +273,89 @@ destruct (observe tr1) eqn:?;
 - inversion Heq; subst; reflexivity.
 Qed.
 
-Lemma eqtr_Tnil_tr_app {A B} : forall a (tr : trace A B), eqtr (Tnil a +++ tr) tr.
+Lemma eq_tr_Tnil_app_tr {A B} : forall a (tr : trace A B),
+ eq_tr (Tnil a +++ tr) tr.
 Proof.
 intros a tr.
-rewrite tr_app_unfold.
+rewrite app_tr_unfold.
 reflexivity.
 Qed.
 
-Lemma eqtr_left_Tnil_tr_app {A B} :
-forall a (tr1 tr2 : trace A B),
- eqtr (Tnil a +++ tr1) (Tnil a +++ tr2) ->
- eqtr tr1 tr2.
-Proof.
-intros a tr1 tr2.
-rewrite 2 tr_app_unfold.
-auto.
-Qed.
-
-Lemma eqtr_left_tr_app_Tnil {A B} :
-forall a (tr1 tr2 : trace A B),
- eqtr tr1 tr2 ->
- eqtr (Tnil a +++ tr1) (Tnil a +++ tr2).
-Proof.
-intros a tr1 tr2.
-rewrite 2 tr_app_unfold.
-auto.
-Qed.
-
-Lemma eqtr_Tcons_tr_app {A B} : forall a b (tr tr' : trace A B),
- eqtr (Tcons a b tr +++ tr') (Tcons a b (tr +++ tr')).
+Lemma eq_tr_Tcons_app_tr {A B} : forall a b (tr tr' : trace A B),
+ eq_tr (Tcons a b tr +++ tr') (Tcons a b (tr +++ tr')).
 Proof.
 intros a b tr tr'.
-rewrite tr_app_unfold.
+rewrite app_tr_unfold.
 reflexivity.
 Qed.
 
-Lemma eqtr_tr_app_left {A B} :
-forall (tr11 tr12 tr : trace A B),
- eqtr tr11 tr12 ->
- eqtr (tr11 +++ tr) (tr12 +++ tr).
+Lemma eq_tr_left_Tnil_app_tr {A B} :
+forall a (tr1 tr2 : trace A B),
+ eq_tr (Tnil a +++ tr1) (Tnil a +++ tr2) ->
+ eq_tr tr1 tr2.
 Proof.
-unfold eqtr at 2.
-coinduction r h; intros tr11 tr12 tr Heq.
-apply (gfp_fp feqtr) in Heq.
-rewrite tr_app_unfold.
+intros a tr1 tr2.
+rewrite 2 app_tr_unfold.
+auto.
+Qed.
+
+Lemma eq_tr_left_app_tr_Tnil {A B} :
+forall a (tr1 tr2 : trace A B),
+ eq_tr tr1 tr2 ->
+ eq_tr (Tnil a +++ tr1) (Tnil a +++ tr2).
+Proof.
+intros a tr1 tr2.
+rewrite 2 app_tr_unfold.
+auto.
+Qed.
+
+Lemma eq_tr_tr_app_left {A B} :
+forall (tr11 tr12 tr : trace A B),
+ eq_tr tr11 tr12 ->
+ eq_tr (tr11 +++ tr) (tr12 +++ tr).
+Proof.
+unfold eq_tr at 2.
+coinduction R H; intros tr11 tr12 tr Heq.
+apply (gfp_fp eq_tr_f) in Heq.
+rewrite app_tr_unfold.
 symmetry.
-rewrite tr_app_unfold.
+rewrite app_tr_unfold.
 symmetry.
 inversion Heq; auto.
 constructor.
-apply h, REL.
+apply H, REL.
 Qed.
 
-Lemma eqtr_tr_app {A B} : forall (tr1 tr2 tr3 tr4 : trace A B), 
- eqtr tr1 tr2 ->
- eqtr tr3 tr4 ->
- eqtr (tr1 +++ tr3) (tr2 +++ tr4).
+Lemma eq_tr_app_tr {A B} : forall (tr1 tr2 tr3 tr4 : trace A B), 
+ eq_tr tr1 tr2 ->
+ eq_tr tr3 tr4 ->
+ eq_tr (tr1 +++ tr3) (tr2 +++ tr4).
 Proof.
-unfold eqtr at 3.
+unfold eq_tr at 3.
 coinduction R H; intros tr1 tr2 tr3 tr4 Htr Htr'.
-apply (gfp_fp feqtr) in Htr.
-rewrite tr_app_unfold.
+apply (gfp_fp eq_tr_f) in Htr.
+rewrite app_tr_unfold.
 symmetry.
-rewrite tr_app_unfold.
+rewrite app_tr_unfold.
 symmetry.
 inversion Htr; auto.
 - rewrite Htr'; reflexivity.
 - constructor.
   apply H; [assumption|].
-  apply (gfp_fp feqtr) in Htr'.
+  apply (gfp_fp eq_tr_f) in Htr'.
   cbn in Htr'.
   step; assumption.
 Qed.
 
 Lemma eqtr_zeros_tr_app : 
- forall tr tr', eqtr (zeros +++ tr) (zeros +++ tr').
+ forall tr tr', eq_tr (zeros +++ tr) (zeros +++ tr').
 Proof.
-unfold eqtr.
+unfold eq_tr.
 coinduction R H.
 intros tr tr'.
-rewrite tr_app_unfold.
+rewrite app_tr_unfold.
 symmetry.
-rewrite tr_app_unfold.
+rewrite app_tr_unfold.
 symmetry.
 destruct (observe zeros) eqn:?.
 - cbn in Heqt.
@@ -357,235 +369,238 @@ Qed.
 
 (** ** Infinite trace definitions *)
 
-Section Inftr.
+Section Inf.
 
 Context {A B : Type}.
 
-Variant inftrb (ifr : trace A B -> Prop) : trace' A B -> Prop :=
-| Inf_Tcons a b tr (PRED : ifr tr) : inftrb ifr (TconsF a b tr).
-Hint Constructors inftrb: core.
+Variant inf_tr'_b (inf : trace A B -> Prop) : trace' A B -> Prop :=
+| Inf_Tcons a b tr (PRED : inf tr) : inf_tr'_b inf (TconsF a b tr).
+Hint Constructors inf_tr'_b : core.
 
-Definition inftrb_ ifr : trace A B -> Prop :=
- fun tr => inftrb ifr (observe tr).
+Definition inf_tr_b inf : trace A B -> Prop :=
+ fun tr => inf_tr'_b inf (observe tr).
 
-Program Definition finftr: mon (trace A B -> Prop) := {| body := inftrb_ |}.
+Program Definition inf_tr_f : mon (trace A B -> Prop) :=
+ {| body := inf_tr_b |}.
 Next Obligation.
-  unfold pointwise_relation, Basics.impl, inftrb_.
+  unfold pointwise_relation, Basics.impl, inf_tr_b.
   intros PX PY PXY Z INF.
   inversion_clear INF; auto.
 Qed.
 
-End Inftr.
+End Inf.
 
-Definition inftr {A B} := (gfp (@finftr A B)).
-#[export] Hint Unfold inftr: core.
-#[export] Hint Constructors inftrb: core.
+Definition inf_tr {A B} := (gfp (@inf_tr_f A B)).
 
-#[export] Instance inftr_upto_eqtr {A B} {R : Chain (@finftr A B)} :
- Proper (eqtr ==> flip impl) (` R).
+#[export] Hint Unfold inf_tr : core.
+#[export] Hint Constructors inf_tr'_b : core.
+
+#[export] Instance inf_tr_upto_eq_tr {A B} {R : Chain (@inf_tr_f A B)} :
+ Proper (eq_tr ==> flip impl) (` R).
 Proof.
-  apply tower.
-  - unfold Proper, respectful.
-    apply inf_closed_all; intros ?.
-    apply inf_closed_all; intros ?.
-    apply inf_closed_impl.
-    now intros ???.
-    apply inf_closed_impl.
-    now intros ???.
-    now intros ??.
-  - clear R; intros R HP tr tr' EQ INF.
-    apply (gfp_fp feqtr) in EQ.
-    cbn in *; red in INF |- *.
-    inversion EQ.
-    + rewrite <- H in INF; inversion INF.
-    + constructor.
-      rewrite <- H in INF; inversion INF; subst.
-      eapply HP; eauto.
+ apply tower.
+ - unfold Proper, respectful.
+   apply inf_closed_all; intros ?.
+   apply inf_closed_all; intros ?.
+   apply inf_closed_impl.
+   now intros ???.
+   apply inf_closed_impl.
+   now intros ???.
+   now intros ??.
+ - clear R; intros R HP tr tr' EQ INF.
+   apply (gfp_fp eq_tr_f) in EQ.
+   cbn in *; red in INF |- *.
+   inversion EQ.
+   + rewrite <- H in INF; inversion INF.
+   + constructor.
+     rewrite <- H in INF; inversion INF; subst.
+     eapply HP; eauto.
 Qed.
 
-#[export] Instance Proper_inftr {A B} :
- Proper (eqtr ==> flip impl) (@inftr A B).
+#[export] Instance Proper_inf_tr {A B} :
+ Proper (eq_tr ==> flip impl) (@inf_tr A B).
 Proof. typeclasses eauto. Qed.
 
-#[export] Instance Proper_iff_inftr {A B} :
- Proper (eqtr ==> iff) (@inftr A B).
+#[export] Instance Proper_iff_inf_tr {A B} :
+ Proper (eq_tr ==> iff) (@inf_tr A B).
 Proof.
 unfold Proper, respectful, flip, impl; cbn.
-intros x y Heq.
-split; now rewrite Heq.
+intros x y Heq; split; now rewrite Heq.
 Qed.
 
 (** ** Infinite trace properties *)
 
-Lemma inftr_Tcons {A B} : forall a b (tr : trace A B),
- inftr (Tcons a b tr) -> inftr tr.
+Lemma inf_tr_Tcons {A B} : forall a b (tr : trace A B),
+ inf_tr (Tcons a b tr) -> inf_tr tr.
 Proof.
-unfold inftr.
+unfold inf_tr.
 intros a b tr Htr.
-apply (gfp_fp finftr) in Htr.
+apply (gfp_fp inf_tr_f) in Htr.
 now inversion Htr; subst.
 Qed.
 
-Lemma inftr_tr_app {A B} : forall (tr : trace A B),
- inftr tr -> forall tr', inftr (tr' +++ tr).
+Lemma inf_tr_app_tr {A B} : forall (tr : trace A B),
+ inf_tr tr -> forall tr', inf_tr (tr' +++ tr).
 Proof.
-  intros tr INF.
-  unfold inftr.
-  coinduction R H.
-  intros tr'.
-  rewrite tr_app_unfold.
-  destruct (observe tr') eqn:?.
-  - now apply (gfp_bchain finftr).
-  - constructor; apply H.
+intros tr INF.
+unfold inf_tr.
+coinduction R H.
+intros tr'.
+rewrite app_tr_unfold.
+destruct (observe tr') eqn:?.
+- now apply (gfp_bchain inf_tr_f).
+- constructor; apply H.
 Qed.
 
-Lemma tr_app_inftr {A B} : forall (tr : trace A B),
- inftr tr -> forall tr', inftr (tr +++ tr').
+Lemma app_tr_inf_tr {A B} : forall (tr : trace A B),
+ inf_tr tr -> forall tr', inf_tr (tr +++ tr').
 Proof.
-  unfold inftr at 2.
-  coinduction R H.
-  intros tr Hinf tr'.
-  apply (gfp_fp finftr) in Hinf.
-  inversion Hinf.
-  rewrite tr_app_unfold.
-  rewrite <- H1.
-  constructor.
-  apply H.
-  apply (gfp_fp finftr) in PRED.
-  now apply (gfp_fp finftr).
+unfold inf_tr at 2.
+coinduction R H.
+intros tr Hinf tr'.
+apply (gfp_fp inf_tr_f) in Hinf.
+inversion Hinf.
+rewrite app_tr_unfold.
+rewrite <- H1.
+constructor.
+apply H.
+apply (gfp_fp inf_tr_f) in PRED.
+now apply (gfp_fp inf_tr_f).
 Qed.
 
 (** ** Finite trace definitions *)
 
-Inductive fintr' {A B} : trace' A B -> Prop :=
+Inductive fin_tr' {A B} : trace' A B -> Prop :=
 | Fin_Tnil : forall a,
-   fintr' (TnilF a)
+   fin_tr' (TnilF a)
 | Fin_Tcons : forall a b tr,
-   fintr' (observe tr) ->
-   fintr' (TconsF a b tr).
-#[export] Hint Constructors fintr' : core.
+   fin_tr' (observe tr) ->
+   fin_tr' (TconsF a b tr).
+
+#[export] Hint Constructors fin_tr' : core.
 Arguments Fin_Tnil {A B} a.
 
-Definition fintr {A B} : trace A B -> Prop :=
- fun tr => fintr' (observe tr).
+Definition fin_tr {A B} : trace A B -> Prop :=
+ fun tr => fin_tr' (observe tr).
 
 (** ** Finite trace properties *)
 
-Lemma fintr_Tnil {A B} : forall (a : A),
- @fintr A B (Tnil a).
+Lemma fin_tr_Tnil {A B} : forall (a : A),
+ @fin_tr A B (Tnil a).
 Proof. intros a; constructor. Qed.
 
-#[export] Instance Proper_fintr {A B} :
- Proper (eqtr ==> flip impl) (@fintr A B).
+Lemma inv_TconsF_fin_tr' {A B} (a : A) (b : B) (tr : trace A B)
+ (h : fin_tr' (TconsF a b tr)) : fin_tr' (observe tr).
+Proof. now inversion h. Defined.
+
+#[export] Instance Proper_fin_tr {A B} :
+ Proper (eq_tr ==> flip impl) (@fin_tr A B).
 Proof.
 unfold Proper, respectful, flip, impl; cbn.
 intros x y Heq Hy.
-unfold fintr in Hy.
+unfold fin_tr in Hy.
 symmetry in Heq.
-rewrite eqtr_eta in Heq.
+rewrite eq_tr_eta in Heq.
 revert x Heq.
 induction Hy.
 - intros x Heq.
-  apply (gfp_fp feqtr) in Heq.
+  apply (gfp_fp eq_tr_f) in Heq.
   inversion Heq.
-  unfold fintr.
+  unfold fin_tr.
   rewrite <- H.
   constructor.
 - intros x Heq.
-  apply (gfp_fp feqtr) in Heq.
+  apply (gfp_fp eq_tr_f) in Heq.
   inversion Heq; subst.
-  unfold fintr.
+  unfold fin_tr.
   rewrite <- H.
   apply Fin_Tcons.
   apply IHHy.
-  now rewrite <- eqtr_eta.
+  now rewrite <- eq_tr_eta.
 Qed.
 
-Lemma invert_finiteT_delay {A B : Type} (a : A) (b : B) (tr : trace A B)
- (h : fintr' (TconsF a b tr)) : fintr' (observe tr).
-Proof. now inversion h. Defined.
-
-Lemma fintr_inftr_not {A B} : forall(tr : trace A B),
- fintr tr -> inftr tr -> False.
+Lemma fin_tr_inf_tr_not {A B} : forall (tr : trace A B),
+ fin_tr tr -> inf_tr tr -> False.
 Proof.
-unfold fintr,inftr.
+unfold fin_tr,inf_tr.
 intros tr Hfin Hinf.
-apply (gfp_fp finftr) in Hinf.
+apply (gfp_fp inf_tr_f) in Hinf.
 cbn in Hinf.
-unfold inftrb_ in Hinf.
+unfold inf_tr_b in Hinf.
 revert Hfin Hinf.
 induction 1; intros Hinf.
 - inversion Hinf.
 - apply IHHfin; clear IHHfin.
   inversion Hinf; subst.
-  now apply (gfp_fp finftr) in PRED.
+  now apply (gfp_fp inf_tr_f) in PRED.
 Qed.
 
-Lemma not_fintr_inftr {A B} : forall(tr : trace A B),
- ~ fintr tr -> inftr tr.
+Lemma not_fin_tr_inf_tr {A B} : forall(tr : trace A B),
+ ~ fin_tr tr -> inf_tr tr.
 Proof.
-unfold inftr.
+unfold inf_tr.
 coinduction R H.
 intros tr Hfin.
 destruct (observe tr) eqn:?.
 - contradict Hfin.
-  unfold fintr.
+  unfold fin_tr.
   rewrite Heqt.
   apply Fin_Tnil.
 - cbn.
-  unfold inftrb_.
+  unfold inf_tr_b.
   rewrite Heqt.
   constructor.
   apply H.
   intros Hf.
   contradict Hfin.  
-  unfold fintr.
+  unfold fin_tr.
   rewrite Heqt.
   now apply Fin_Tcons.
 Qed.
 
 (** * Final element properties *)
 
-Inductive finaltr' {A B} : trace' A B -> A -> Prop :=
+Inductive final_tr' {A B} : trace' A B -> A -> Prop :=
 | Final_Tnil : forall a,
-   finaltr' (TnilF a) a
+   final_tr' (TnilF a) a
 | Final_Tcons : forall a b a' tr,
-   finaltr' (observe tr) a' ->
-   finaltr' (TconsF a b tr) a'.
-#[export] Hint Constructors finaltr' : core.
+   final_tr' (observe tr) a' ->
+   final_tr' (TconsF a b tr) a'.
+
+#[export] Hint Constructors final_tr' : core.
 Arguments Final_Tnil {A B} a.
 
-Definition finaltr {A B} : trace A B -> A -> Prop :=
- fun tr => finaltr' (observe tr).
+Definition final_tr {A B} : trace A B -> A -> Prop :=
+ fun tr => final_tr' (observe tr).
 
-Definition final' {A B : Type} : forall (tr: trace' A B), fintr' tr -> A :=
-  fix F (tr : trace' A B) (h : fintr' tr) {struct h} : A :=
-    match tr as tr' return (fintr' tr' -> A) with
-    | TnilF a => fun _ => a
-    | TconsF a b tr0 => fun h => F (observe tr0) (invert_finiteT_delay h)
-    end h.
+Definition final' {A B} : forall (tr: trace' A B), fin_tr' tr -> A :=
+ fix F (tr : trace' A B) (h : fin_tr' tr) {struct h} : A :=
+  match tr as tr' return (fin_tr' tr' -> A) with
+  | TnilF a => fun _ => a
+  | TconsF a b tr0 => fun h => F (observe tr0) (inv_TconsF_fin_tr' h)
+  end h.
 
-Definition final {A B} (tr : trace A B) (Fin : fintr tr) : A :=
- final' Fin.
+Definition final {A B} (tr : trace A B) (h : fin_tr tr) : A :=
+ final' h.
 
-Lemma finaltr_finitetr {A B} : forall (tr : trace A B) a,
- finaltr tr a -> fintr tr.
+Lemma final_tr_fin_tr {A B} : forall (tr : trace A B) a,
+ final_tr tr a -> fin_tr tr.
 Proof.
 refine (fix IH tr a h {struct h} := _).
-unfold finaltr in h.
-unfold fintr.
+unfold final_tr in h.
+unfold fin_tr.
 inversion h; subst.
 - apply Fin_Tnil.
 - apply Fin_Tcons.
   now apply (IH _ a).
 Qed.
 
-Lemma finitetr_finaltr {A B} : forall (tr : trace A B) (h : fintr tr),
- finaltr tr (final h).
+Lemma fin_tr_final_tr {A B} : forall (tr : trace A B) (h : fin_tr tr),
+ final_tr tr (final h).
 Proof.
 refine (fix IH tr h {struct h} := _).
-unfold fintr in h.
-unfold finaltr, final, final'.
+unfold fin_tr in h.
+unfold final_tr, final, final'.
 inversion h; subst.
 - dependent inversion h; auto.
   congruence.
@@ -596,100 +611,112 @@ inversion h; subst.
   apply IH.
 Qed.
 
-Lemma final_tr_hd_app_trace {A B} : forall (tr0 : trace A B) a,
- finaltr tr0 a -> forall tr1, tr_hd tr1 = a ->
- tr_hd (tr0 +++ tr1) = tr_hd tr0.
+Lemma final_tr_hd_app_tr {A B} : forall (tr0 : trace A B) a,
+ final_tr tr0 a ->
+ forall tr1, hd_tr tr1 = a ->
+ hd_tr (tr0 +++ tr1) = hd_tr tr0.
 Proof.
 refine (fix IH tr a h {struct h} := _).
 inversion h; subst.
-Abort.
+- unfold hd_tr.
+  symmetry in H0.
+  intros tr1 Hhd.
+  rewrite (observe_TnilF_app_tr _ _ H0).
+  now rewrite H0.
+- unfold hd_tr.
+  intros tr1 Hhd.
+  symmetry in H.
+  rewrite (observe_TconsF_app_tr _ _ H).
+  now rewrite H.
+Qed.
 
 (** * Basic predicates *)
 
-Definition tr_tt' {A B} : trace' A B -> Prop :=
+Definition tt_tr' {A B} : trace' A B -> Prop :=
  fun _ => True.
 
-Definition tr_tt {A B} : trace A B -> Prop :=
- fun tr => tr_tt' (observe tr).
+Definition tt_tr {A B} : trace A B -> Prop :=
+ fun tr => tt_tr' (observe tr).
 
-#[export] Instance Proper_tr_tt {A B} :
- Proper (eqtr ==> flip impl) (@tr_tt A B).
+#[export] Instance Proper_tt_tr {A B} :
+ Proper (eq_tr ==> flip impl) (@tt_tr A B).
 Proof. now cbn. Qed.
 
-Definition tr_ff' {A B} : trace' A B -> Prop :=
+Definition ff_tr' {A B} : trace' A B -> Prop :=
  fun _ => False.
 
-Definition tr_ff {A B} : trace A B -> Prop :=
- fun tr => tr_ff' (observe tr).
+Definition ff_tr {A B} : trace A B -> Prop :=
+ fun tr => ff_tr' (observe tr).
 
 #[export] Instance Proper_tr_ff {A B} :
- Proper (eqtr ==> flip impl) (@tr_ff A B).
+ Proper (eq_tr ==> flip impl) (@ff_tr A B).
 Proof. now cbn. Qed.
 
-Definition tr_singleton' {A B} (u : A -> Prop) (tr : trace' A B) : Prop :=
- exists a, u a /\ eqtr (go tr) (Tnil a).
+Definition singleton_tr' {A B} (u : A -> Prop) (tr : trace' A B) : Prop :=
+ exists a, u a /\ eq_tr (go tr) (Tnil a).
 
-Definition tr_singleton {A B} (u : A -> Prop) : trace A B -> Prop :=
- fun tr => tr_singleton' u (observe tr).
+Definition singleton_tr {A B} (u : A -> Prop) : trace A B -> Prop :=
+ fun tr => singleton_tr' u (observe tr).
 
-#[export] Instance Proper_tr_singleton {A B} (u : A -> Prop) :
- Proper (eqtr ==> flip impl) (@tr_singleton A B u).
+#[export] Instance Proper_singleton_tr {A B} (u : A -> Prop) :
+ Proper (eq_tr ==> flip impl) (@singleton_tr A B u).
 Proof. 
 unfold Proper, respectful, flip, impl; cbn.
-unfold tr_singleton, eqtr.
+unfold singleton_tr, eq_tr.
 intros x y Heq.
-apply (gfp_fp feqtr) in Heq.
+apply (gfp_fp eq_tr_f) in Heq.
 inversion Heq; auto.
-unfold tr_singleton'.
 intros [a0 [Hu Heq']].
-apply (gfp_fp feqtr) in Heq'.
+apply (gfp_fp eq_tr_f) in Heq'.
 inversion Heq'.
 Qed.
 
 (** * Follows relation *)
 
-Section Followstr.
+Section Follows.
 
 Context {A B : Type}.
 
-Variant followstrb (p : trace A B -> Prop) (ftr : trace A B -> trace A B -> Prop) :
+Variant follows_tr'_b (p : trace A B -> Prop) (fol : trace A B -> trace A B -> Prop) :
  trace' A B -> trace' A B -> Prop :=
 | Follows_Tnil : forall a b tr, p tr ->
-   followstrb p ftr (TnilF a) (TconsF a b tr)
-| Follows_Tcons : forall a b tr tr' (REL : ftr tr tr'),
-   followstrb p ftr (TconsF a b tr) (TconsF a b tr').
-Hint Constructors followstrb: core.
+   follows_tr'_b p fol (TnilF a) (TconsF a b tr)
+| Follows_Tcons : forall a b tr tr' (REL : fol tr tr'),
+   follows_tr'_b p fol (TconsF a b tr) (TconsF a b tr').
 
-Definition followstrb_ p ftr : trace A B -> trace A B -> Prop :=
- fun tr1 tr2 => followstrb p ftr (observe tr1) (observe tr2).
+Hint Constructors follows_tr'_b : core.
 
-Program Definition ffollowstrb p : mon (trace A B -> trace A B -> Prop) :=
- {| body := followstrb_ p |}.
+Definition follows_tr_b p ftr : trace A B -> trace A B -> Prop :=
+ fun tr1 tr2 => follows_tr'_b p ftr (observe tr1) (observe tr2).
+
+Program Definition follows_tr_f p : mon (trace A B -> trace A B -> Prop) :=
+ {| body := follows_tr_b p |}.
 Next Obligation.
-  unfold pointwise_relation, Basics.impl, followstrb_.
+  unfold pointwise_relation, Basics.impl, follows_tr_b.
   intros PX PY PXY tr tr' FL.
   inversion_clear FL; auto.
 Qed.
 
-End Followstr.
+End Follows.
 
-Definition followstr {A B} p := (gfp (@ffollowstrb A B p)).
-#[export] Hint Unfold followstr: core.
-#[export] Hint Constructors followstrb: core.
-Arguments followstrb_ _ _ _/.
+Definition follows_tr {A B} p := (gfp (@follows_tr_f A B p)).
 
-#[export] Instance Proper_followstr {A B} p (Hp : Proper (eqtr ==> flip impl) p) :
-  Proper (eqtr ==> eqtr ==> flip impl) (@followstr A B p).
+#[export] Hint Unfold follows_tr : core.
+#[export] Hint Constructors follows_tr'_b : core.
+Arguments follows_tr_b _ _ _/.
+
+#[export] Instance Proper_follows_tr {A B} p (Hp : Proper (eq_tr ==> flip impl) p) :
+  Proper (eq_tr ==> eq_tr ==> flip impl) (@follows_tr A B p).
 Proof.
 unfold Proper, respectful, flip, impl; cbn.
-unfold followstr at 2.
+unfold follows_tr at 2.
 coinduction R H.
-unfold followstr; intros x y Heq x' y' Heq' Hf.
-apply (gfp_fp (ffollowstrb p)) in Hf.
+unfold follows_tr; intros x y Heq x' y' Heq' Hf.
+apply (gfp_fp (follows_tr_f p)) in Hf.
 cbn in Hf.
-unfold eqtr in Heq.
-apply (gfp_fp feqtr) in Heq.
-apply (gfp_fp feqtr) in Heq'.
+unfold eq_tr in Heq.
+apply (gfp_fp eq_tr_f) in Heq.
+apply (gfp_fp eq_tr_f) in Heq'.
 cbn in Heq, Heq'.
 inversion Heq.
 - rewrite <- H2 in Hf.
@@ -715,13 +742,15 @@ inversion Heq.
   * apply REL0.
 Qed.
 
-Definition appendtr' {A B} (p1 p2 : trace A B -> Prop) : trace' A B -> Prop :=
-fun tr => exists tr', p1 tr' /\ followstr p2 tr' (go tr).
+Definition append_tr' {A B} (p1 p2 : trace A B -> Prop) : trace' A B -> Prop :=
+fun tr => exists tr', p1 tr' /\ follows_tr p2 tr' (go tr).
 
-Definition appendtr {A B} (p1 p2 : trace A B -> Prop) : trace A B -> Prop :=
-fun tr => appendtr' p1 p2 (observe tr).
+Definition append_tr {A B} (p1 p2 : trace A B -> Prop) : trace A B -> Prop :=
+fun tr => append_tr' p1 p2 (observe tr).
 
+(*
 Lemma appendtr_assoc_L {A B} : forall p1 p2 p3 (tr : trace A B),
  (appendtr (appendtr p1 p2) p3) tr -> appendtr p1 (appendtr p2 p3) tr.
 Proof.
 Abort.
+*)
