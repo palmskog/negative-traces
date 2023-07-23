@@ -15,6 +15,7 @@ jobs:
     strategy:
       matrix:
         image:
+          - 'coqorg/coq:dev'
           - 'coqorg/coq:8.17'
       fail-fast: false
     steps:
