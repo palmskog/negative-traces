@@ -40,7 +40,7 @@ Arguments traceF _ _ : clear implicits.
 Notation trace' A B := (traceF A B (trace A B)).
 
 Definition observe {A B} (tr : trace A B) : trace' A B :=
-@_observe A B tr.
+ @_observe A B tr.
 
 Notation Tnil a := (go (TnilF a)).
 Notation Tcons a b tr := (go (TconsF a b tr)).
@@ -96,8 +96,8 @@ Definition eq_tr_b eq : trace A B -> trace A B -> Prop :=
 Program Definition eq_tr_f : mon (trace A B -> trace A B -> Prop) :=
  {| body := eq_tr_b |}.
 Next Obligation.
-  unfold pointwise_relation, Basics.impl, eq_tr_b.
-  intros ?? INC ?? EQ. inversion_clear EQ; auto.
+unfold pointwise_relation, Basics.impl, eq_tr_b.
+intros ?? INC ?? EQ. inversion_clear EQ; auto.
 Qed.
 
 End Eq.
@@ -142,18 +142,11 @@ Qed.
 #[export] Instance Transitive_eq_tr'_b {A B} {R} {Hr: Transitive R} :
  Transitive (@eq_tr'_b A B R).
 Proof.
-intros [xa|xa xb xtr]; intros [ya|ya yb ytr]; intros [za|za zb ztr] Heqx Heqy.
-- inversion Heqx; subst.
-  inversion Heqy; subst; constructor.
-- inversion Heqy; subst.
-- inversion Heqx.
-- inversion Heqx.
-- inversion Heqx.
-- inversion Heqx.
-- inversion Heqy.
-- inversion Heqx; subst.
-  inversion Heqy; subst.
-  constructor; revert REL REL0; apply Hr.
+intros [xa|xa xb xtr]; intros [ya|ya yb ytr]; intros [za|za zb ztr] Heqx Heqy;
+ try now inversion Heqx.
+inversion Heqx; subst.
+inversion Heqy; subst.
+constructor; revert REL REL0; apply Hr.
 Qed.
 
 #[export] Instance Transitive_eq_tr_f {A B : Type} :
