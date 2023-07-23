@@ -210,13 +210,13 @@ Qed.
 CoFixpoint zeros : trace nat unit := Tcons 0 tt zeros.
 Definition zeros' : trace nat unit := Tcons 0 tt (Tcons 0 tt zeros).
 
-Lemma zeros_zeros_eqtr : eqtr zeros zeros.
+Example zeros_zeros_eqtr : eqtr zeros zeros.
 Proof. reflexivity. Qed.
 
-Lemma zeros_zeros_one_eqtr : eqtr zeros (Tcons 0 tt zeros).
+Example zeros_zeros_one_eqtr : eqtr zeros (Tcons 0 tt zeros).
 Proof. unfold eqtr; step; cbn; reflexivity. Qed.
 
-Lemma zeros_zeros'_eqtr : eqtr zeros zeros'.
+Example zeros_zeros'_eqtr : eqtr zeros zeros'.
 Proof.
 unfold eqtr, zeros'.
 step; cbn; constructor; cbn.
@@ -245,9 +245,7 @@ Lemma tr_app_unfold {A B} :
        | TnilF a => tr'
        | TconsF a b tr0 => Tcons a b (tr0 +++ tr')
        end).
-Proof.
-  intros; now step.
-Qed.
+Proof. intros; now step. Qed.
 
 Lemma eqtr_hd {A B : Type} (tr1 tr2 : trace A B) :
  eqtr tr1 tr2 -> tr_hd tr1 = tr_hd tr2.
@@ -414,43 +412,7 @@ Proof. typeclasses eauto. Qed.
 Proof.
 unfold Proper, respectful, flip, impl; cbn.
 intros x y Heq.
-split.
-- revert x y Heq.
-  unfold inftr at 2.
-  coinduction R H.
-  intros x y Heq Hx.
-  apply (gfp_fp feqtr) in Heq.
-  inversion Heq; subst.
-  * apply (gfp_fp finftr) in Hx.
-    inversion Hx; subst.
-    congruence.
-  * apply (gfp_fp finftr) in Hx.
-    inversion Hx; subst.
-    rewrite <- H1 in H3.
-    inversion H3; subst.
-    cbn.
-    unfold inftrb_.
-    rewrite <- H2.
-    constructor.
-    eapply H; eauto.
-- revert x y Heq.
-  unfold inftr at 2.
-  coinduction R H.
-  intros x y Heq Hy.
-  apply (gfp_fp feqtr) in Heq.
-  inversion Heq; subst.
-  * apply (gfp_fp finftr) in Hy.
-    inversion Hy; subst.
-    congruence.
-  * apply (gfp_fp finftr) in Hy.
-    inversion Hy; subst.
-    rewrite <- H2 in H3.
-    inversion H3; subst.
-    cbn.
-    unfold inftrb_.
-    rewrite <- H1.
-    constructor.
-    eapply H; eauto.
+split; now rewrite Heq.
 Qed.
 
 (** ** Infinite trace properties *)
@@ -752,3 +714,14 @@ inversion Heq.
   * now symmetry.
   * apply REL0.
 Qed.
+
+Definition appendtr' {A B} (p1 p2 : trace A B -> Prop) : trace' A B -> Prop :=
+fun tr => exists tr', p1 tr' /\ followstr p2 tr' (go tr).
+
+Definition appendtr {A B} (p1 p2 : trace A B -> Prop) : trace A B -> Prop :=
+fun tr => appendtr' p1 p2 (observe tr).
+
+Lemma appendtr_assoc_L {A B} : forall p1 p2 p3 (tr : trace A B),
+ (appendtr (appendtr p1 p2) p3) tr -> appendtr p1 (appendtr p2 p3) tr.
+Proof.
+Abort.
