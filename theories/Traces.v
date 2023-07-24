@@ -32,7 +32,7 @@ End Trace.
 Declare Scope trace_scope.
 Bind Scope trace_scope with trace.
 Delimit Scope trace_scope with trace.
-Local Open Scope trace_scope.
+#[local] Open Scope trace_scope.
 
 Arguments trace _ _ : clear implicits.
 Arguments traceF _ _ : clear implicits.

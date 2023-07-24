@@ -1,3 +1,4 @@
 -Q theories NegativeTraces
 
 theories/Traces.v
+theories/PrimitiveProps.v
