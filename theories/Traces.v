@@ -251,6 +251,27 @@ Lemma app_tr_unfold {A B} :
        end).
 Proof. intros; now step. Qed.
 
+Lemma app_tr_eq_tr_f_unfold {A B} :
+  forall (R : Chain (@eq_tr_f A B)) (tr tr' : trace A B),
+    eq_tr_f `R (tr +++ tr')
+      (match observe tr with
+       | TnilF a => tr'
+       | TconsF a b tr0 => Tcons a b (tr0 +++ tr')
+       end).
+Proof. intros; apply sub_gfp_Chain, app_tr_unfold. Qed.
+
+#[export] Instance Proper_Chain_app_tr {A B : Type} :
+ forall (R : Chain (@eq_tr_f A B)), Proper (`R ==> `R ==> `R) app_tr.
+Proof.
+apply (Proper_chain 2).
+intros R HPr tr1 tr2 Heq tr3 tr4 Heq'.
+rewrite 2 app_tr_eq_tr_f_unfold.
+inversion Heq; [assumption|].
+constructor.
+apply HPr; [assumption|].
+now apply sub_bChain in Heq'.
+Qed.
+
 Lemma eq_tr_hd {A B} (tr1 tr2 : trace A B) :
  eq_tr tr1 tr2 -> hd_tr tr1 = hd_tr tr2.
 Proof.
@@ -288,8 +309,7 @@ forall a (tr1 tr2 : trace A B),
  eq_tr tr1 tr2.
 Proof.
 intros a tr1 tr2.
-rewrite 2 app_tr_unfold.
-auto.
+now rewrite 2 app_tr_unfold.
 Qed.
 
 Lemma eq_tr_left_app_tr_Tnil {A B} :
@@ -298,8 +318,7 @@ forall a (tr1 tr2 : trace A B),
  eq_tr (Tnil a +++ tr1) (Tnil a +++ tr2).
 Proof.
 intros a tr1 tr2.
-rewrite 2 app_tr_unfold.
-auto.
+now rewrite 2 app_tr_unfold.
 Qed.
 
 Lemma eq_tr_tr_app_left {A B} :
@@ -307,16 +326,8 @@ forall (tr11 tr12 tr : trace A B),
  eq_tr tr11 tr12 ->
  eq_tr (tr11 +++ tr) (tr12 +++ tr).
 Proof.
-unfold eq_tr at 2.
-coinduction R H; intros tr11 tr12 tr Heq.
-apply (gfp_fp eq_tr_f) in Heq.
-rewrite app_tr_unfold.
-symmetry.
-rewrite app_tr_unfold.
-symmetry.
-inversion Heq; auto.
-constructor.
-apply H, REL.
+intros tr11 tr12 tr Heq.
+now apply Proper_Chain_app_tr.
 Qed.
 
 Lemma eq_tr_app_tr {A B} : forall (tr1 tr2 tr3 tr4 : trace A B), 
@@ -324,20 +335,8 @@ Lemma eq_tr_app_tr {A B} : forall (tr1 tr2 tr3 tr4 : trace A B),
  eq_tr tr3 tr4 ->
  eq_tr (tr1 +++ tr3) (tr2 +++ tr4).
 Proof.
-unfold eq_tr at 3.
-coinduction R H; intros tr1 tr2 tr3 tr4 Htr Htr'.
-apply (gfp_fp eq_tr_f) in Htr.
-rewrite app_tr_unfold.
-symmetry.
-rewrite app_tr_unfold.
-symmetry.
-inversion Htr; auto.
-- rewrite Htr'; reflexivity.
-- constructor.
-  apply H; [assumption|].
-  apply (gfp_fp eq_tr_f) in Htr'.
-  cbn in Htr'.
-  step; assumption.
+intros tr1 tr2 tr3 tr4 Heq Heq'.
+now apply Proper_Chain_app_tr.
 Qed.
 
 Lemma eqtr_zeros_tr_app : 
